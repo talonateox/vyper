@@ -2,14 +2,13 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 
-use crate::{logger::Logger, vga::ColorCode};
 use core::panic::PanicInfo;
+use io::{logger, vga, vga::ColorCode};
 use log::{error, info};
 
-mod gdt;
+mod cpu;
 mod interrupts;
-mod logger;
-mod vga;
+mod io;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
@@ -24,7 +23,7 @@ pub extern "C" fn _start() -> ! {
     let _ = logger::init(log::LevelFilter::Debug);
 
     info!("Loading GDT");
-    gdt::init();
+    cpu::gdt::init();
     info!("Loading IDT");
     interrupts::init();
 

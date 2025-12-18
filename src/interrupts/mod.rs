@@ -1,8 +1,7 @@
 use lazy_static::lazy_static;
-use log::error;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
-use crate::gdt;
+use crate::cpu::gdt;
 
 extern "x86-interrupt" fn double_fault_handler(
     stack_frame: InterruptStackFrame,

@@ -1,8 +1,8 @@
 use log::{Level, LevelFilter, Log, Metadata, Record};
 
 use crate::{
+    io::vga::{self, ColorCode},
     print, println,
-    vga::{self, ColorCode},
 };
 
 static LOGGER: Logger = Logger;
