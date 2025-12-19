@@ -2,6 +2,8 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 
+extern crate alloc;
+
 mod cpu;
 mod fb;
 mod font;
@@ -10,6 +12,8 @@ mod mem;
 
 use core::arch::asm;
 
+use alloc::string::String;
+use alloc::vec::Vec;
 use limine::BaseRevision;
 use limine::request::{
     FramebufferRequest, HhdmRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker,
@@ -68,17 +72,22 @@ unsafe extern "C" fn kmain() -> ! {
         .entries();
 
     mem::pmm::init(mmap, hhdm);
-    info!(
-        "PMM {} MB free",
-        mem::pmm::free_pages() * 4096 / 1024 / 1024
-    );
+    info!("PMM {}MB free", mem::pmm::free_pages() * 4096 / 1024 / 1024);
+
+    mem::vmm::init(hhdm);
+    info!("VMM loaded");
+
+    mem::heap::init().expect("heap init failed");
+    info!("HEAP {}KB", mem::heap::size());
 
     hcf();
 }
 
 #[panic_handler]
-fn rust_panic(_info: &core::panic::PanicInfo) -> ! {
-    hcf();
+fn rust_panic(info: &core::panic::PanicInfo) -> ! {
+    error!("{}", info.message());
+    error!("at {}", info.location().unwrap());
+    hcf()
 }
 
 fn hcf() -> ! {
