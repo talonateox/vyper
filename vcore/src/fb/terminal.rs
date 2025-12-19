@@ -151,3 +151,45 @@ macro_rules! println {
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }
+
+#[macro_export]
+macro_rules! info {
+    ($($arg:tt)*) => {{
+        $crate::fb::terminal::set_fg(0x5555ff);
+        $crate::print!("[");
+        $crate::fb::terminal::set_fg(0x00ff00);
+        $crate::print!("*");
+        $crate::fb::terminal::set_fg(0x5555ff);
+        $crate::print!("] ");
+        $crate::fb::terminal::set_fg(0xffffff);
+        $crate::println!($($arg)*);
+    }};
+}
+
+#[macro_export]
+macro_rules! warn {
+    ($($arg:tt)*) => {{
+        $crate::fb::terminal::set_fg(0x5555ff);
+        $crate::print!("[");
+        $crate::fb::terminal::set_fg(0xFFA500);
+        $crate::print!("W");
+        $crate::fb::terminal::set_fg(0x5555ff);
+        $crate::print!("] ");
+        $crate::fb::terminal::set_fg(0xffffff);
+        $crate::println!($($arg)*);
+    }};
+}
+
+#[macro_export]
+macro_rules! error {
+    ($($arg:tt)*) => {{
+        $crate::fb::terminal::set_fg(0x5555ff);
+        $crate::print!("[");
+        $crate::fb::terminal::set_fg(0xff0000);
+        $crate::print!("E");
+        $crate::fb::terminal::set_fg(0x5555ff);
+        $crate::print!("] ");
+        $crate::fb::terminal::set_fg(0xffffff);
+        $crate::println!($($arg)*);
+    }};
+}

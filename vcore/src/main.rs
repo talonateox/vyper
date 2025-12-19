@@ -40,10 +40,13 @@ unsafe extern "C" fn kmain() -> ! {
     println!("     {{ }}    .' O'.     / o .-. O \\     /  .--v`");
     println!("     {{ }}   / .-. o\\   /O  /   \\  o\\   /O /");
     println!("      \\ `-` /   \\ O`-'o  /     \\  O`-`o /");
-    println!("       `-.-`     '.____.'       `.____.'");
+    println!("       `-.-`     '.____.'       `.____.'\n");
     terminal::set_fg(0xffffff);
 
-    println!("hello!");
+    info!("Beginning BOOT");
+    info!("info");
+    warn!("warn");
+    error!("err");
 
     hcf();
 }
