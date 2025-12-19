@@ -20,6 +20,8 @@ pub extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
     unsafe {
         end_of_interrupt();
     }
+
+    sched::schedule();
 }
 
 pub extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame) {
@@ -31,8 +33,6 @@ pub extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame
     unsafe {
         end_of_interrupt();
     }
-
-    sched::schedule();
 }
 
 pub extern "x86-interrupt" fn spurious_handler(_stack_frame: InterruptStackFrame) {}
