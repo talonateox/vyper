@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
+#![feature(abi_x86_interrupt)]
 
+mod cpu;
 mod fb;
 mod font;
 mod io;
@@ -44,9 +46,7 @@ unsafe extern "C" fn kmain() -> ! {
     terminal::set_fg(0xffffff);
 
     info!("Beginning BOOT");
-    info!("info");
-    warn!("warn");
-    error!("err");
+    cpu::init();
 
     hcf();
 }
