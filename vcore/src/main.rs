@@ -6,11 +6,15 @@ mod cpu;
 mod fb;
 mod font;
 mod io;
+mod mem;
 
 use core::arch::asm;
 
 use limine::BaseRevision;
-use limine::request::{FramebufferRequest, RequestsEndMarker, RequestsStartMarker};
+use limine::request::{
+    FramebufferRequest, HhdmRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker,
+};
+use x86_64::VirtAddr;
 
 use crate::fb::{Framebuffer, terminal};
 
@@ -23,6 +27,14 @@ static BASE_REVISION: BaseRevision = BaseRevision::new();
 static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
 
 #[used]
+#[unsafe(link_section = ".requests")]
+static HHDM_REQUEST: HhdmRequest = HhdmRequest::new();
+
+#[used]
+#[unsafe(link_section = ".requests")]
+static MEMORY_MAP_REQUEST: MemoryMapRequest = MemoryMapRequest::new();
+
+#[used]
 #[unsafe(link_section = ".requests_start_marker")]
 static _START_MARKER: RequestsStartMarker = RequestsStartMarker::new();
 #[used]
@@ -32,6 +44,8 @@ static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 #[unsafe(no_mangle)]
 unsafe extern "C" fn kmain() -> ! {
     assert!(BASE_REVISION.is_supported());
+
+    let hhdm = VirtAddr::new(HHDM_REQUEST.get_response().unwrap().offset());
 
     let framebuffer = Framebuffer::from_limine(&FRAMEBUFFER_REQUEST);
     terminal::init(framebuffer, &font::FONT);
@@ -47,6 +61,17 @@ unsafe extern "C" fn kmain() -> ! {
 
     info!("Beginning BOOT");
     cpu::init();
+
+    let mmap = MEMORY_MAP_REQUEST
+        .get_response()
+        .expect("no memmap")
+        .entries();
+
+    mem::pmm::init(mmap, hhdm);
+    info!(
+        "PMM {} MB free",
+        mem::pmm::free_pages() * 4096 / 1024 / 1024
+    );
 
     hcf();
 }
