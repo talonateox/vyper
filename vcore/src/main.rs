@@ -80,6 +80,10 @@ unsafe extern "C" fn kmain() -> ! {
     mem::heap::init().expect("heap init failed");
     info!("HEAP {}KB", mem::heap::size());
 
+    cpu::apic::init();
+    info!("APIC loaded");
+    x86_64::instructions::interrupts::enable();
+
     hcf();
 }
 

@@ -1,11 +1,17 @@
 use crate::info;
 
+pub mod apic;
 pub mod gdt;
 pub mod idt;
+pub mod interrupts;
 
 pub fn init() {
     gdt::init();
     info!("GDT loaded");
     idt::init();
-    info!("IDT loaded")
+    info!("IDT loaded");
+}
+
+pub fn ticks() -> u64 {
+    interrupts::ticks()
 }

@@ -1,7 +1,16 @@
 use spin::Lazy;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
-use crate::{cpu::gdt::DOUBLE_FAULT_IST_INDEX, info, print, println};
+use crate::{
+    cpu::{
+        gdt::DOUBLE_FAULT_IST_INDEX,
+        interrupts::{
+            KEYBOARD_VECTOR, SPURIOUS_VECTOR, TIMER_VECTOR, keyboard_handler, spurious_handler,
+            timer_handler,
+        },
+    },
+    info, print, println,
+};
 
 static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
@@ -12,6 +21,12 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
             .set_handler_fn(double_fault_handler)
             .set_stack_index(DOUBLE_FAULT_IST_INDEX);
     }
+    idt.general_protection_fault.set_handler_fn(gpf_handler);
+
+    idt[TIMER_VECTOR].set_handler_fn(timer_handler);
+    idt[KEYBOARD_VECTOR].set_handler_fn(keyboard_handler);
+    idt[SPURIOUS_VECTOR].set_handler_fn(spurious_handler);
+
     idt
 });
 
@@ -51,4 +66,11 @@ extern "x86-interrupt" fn page_fault_handler(
     println!("  ERR: {:?}", error_code);
     print_stack_frame(stack_frame);
     panic!();
+}
+
+extern "x86-interrupt" fn gpf_handler(stack_frame: InterruptStackFrame, error_code: u64) {
+    println!("GENERAL PROTECTION FAULT");
+    println!(" ERR: {}", error_code);
+    print_stack_frame(stack_frame);
+    loop {}
 }
