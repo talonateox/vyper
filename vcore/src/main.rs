@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 #![feature(abi_x86_interrupt)]
+#![feature(naked_functions)]
 
 extern crate alloc;
 
@@ -9,6 +10,7 @@ mod fb;
 mod font;
 mod io;
 mod mem;
+mod sched;
 
 use core::arch::asm;
 
@@ -82,6 +84,9 @@ unsafe extern "C" fn kmain() -> ! {
 
     cpu::apic::init();
     info!("APIC loaded");
+
+    sched::init();
+
     x86_64::instructions::interrupts::enable();
 
     hcf();
