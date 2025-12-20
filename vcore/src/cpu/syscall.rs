@@ -138,7 +138,7 @@ extern "C" fn syscall_handler(
     }
 }
 
-pub unsafe fn jump_to_usermode(entry: u64, user_stack: u64) {
+pub unsafe fn jump_to_usermode(entry: u64, user_stack: u64) -> ! {
     let selectors = gdt::selectors();
 
     let user_cs = selectors.user_code.0 as u64;
@@ -157,6 +157,6 @@ pub unsafe fn jump_to_usermode(entry: u64, user_stack: u64) {
             user_cs = in(reg) user_cs,
             entry = in(reg) entry,
             options(noreturn)
-        );
+        )
     }
 }

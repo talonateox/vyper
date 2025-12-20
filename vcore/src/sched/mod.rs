@@ -1,10 +1,14 @@
 pub mod switch;
 pub mod task;
+pub mod user;
 
 use alloc::collections::VecDeque;
 use spin::Mutex;
 use switch::switch_context;
 use task::{Task, TaskState};
+use x86_64::{VirtAddr, structures::paging::PageTableFlags};
+
+use crate::mem::vmm;
 
 pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
 
@@ -78,6 +82,38 @@ pub fn spawn(entry: fn()) {
     if let Some(sched) = SCHEDULER.lock().as_mut() {
         sched.add_task(task);
     }
+}
+
+pub fn spawn_user(code: &[u8], code_addr: u64) -> Result<u64, &'static str> {
+    let flags =
+        PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
+
+    let code_pages = (code.len() + 4095) / 4096;
+    for i in 0..code_pages {
+        let addr = VirtAddr::new(code_addr + (i * 4096) as u64);
+        vmm::map_page_alloc(addr, flags)?;
+    }
+
+    unsafe {
+        core::ptr::copy_nonoverlapping(code.as_ptr(), code_addr as *mut u8, code.len());
+    }
+
+    let user_stack_base: u64 = 0x7FFF_FFFF_0000;
+    for i in 0..4 {
+        let addr = VirtAddr::new(user_stack_base - (i * 4096));
+        vmm::map_page_alloc(VirtAddr::new(addr.as_u64()), flags)?;
+    }
+
+    let user_stack_top = user_stack_base + 4096 - 8;
+
+    let task = Task::new_user(code_addr, user_stack_top);
+    let id = task.id;
+
+    if let Some(sched) = SCHEDULER.lock().as_mut() {
+        sched.add_task(task);
+    }
+
+    Ok(id)
 }
 
 pub fn schedule() {
