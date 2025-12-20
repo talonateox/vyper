@@ -18,6 +18,11 @@ const IOAPIC_ID: u32 = 0x00;
 const IOAPIC_VER: u32 = 0x01;
 const IOAPIC_REDTBL_BASE: u32 = 0x10;
 
+const PIT_FREQ: u32 = 1193182;
+const CALIBRATE_MS: u32 = 10;
+
+static mut TICKS_PER_MS: u32 = 0;
+
 use crate::{cpu::interrupts::KEYBOARD_VECTOR, mem::vmm};
 
 use super::interrupts::{SPURIOUS_VECTOR, TIMER_VECTOR};
@@ -79,6 +84,39 @@ fn ioapic_set_irq(irq: u8, vector: u8) {
     }
 }
 
+fn calibrate_timer() {
+    unsafe {
+        let mut pit_cmd: Port<u8> = Port::new(0x43);
+        let mut pit_ch2: Port<u8> = Port::new(0x42);
+        let mut pit_gate: Port<u8> = Port::new(0x61);
+
+        let divisor = (PIT_FREQ / 1000) * CALIBRATE_MS;
+
+        pit_cmd.write(0b10110010);
+
+        let gate = pit_gate.read();
+        pit_gate.write(gate | 0x01);
+
+        pit_ch2.write((divisor & 0xFF) as u8);
+        pit_ch2.write((divisor >> 8) as u8);
+
+        lapic_write(LAPIC_TIMER_DIV, 0x3);
+        lapic_write(LAPIC_TIMER_INIT, 0xFFFFFFFF);
+
+        while pit_gate.read() & 0x20 == 0 {}
+
+        let elapsed = 0xFFFFFFFF - lapic_read(LAPIC_TIMER_CURRENT);
+
+        lapic_write(LAPIC_TIMER_INIT, 0);
+
+        TICKS_PER_MS = elapsed / CALIBRATE_MS;
+    }
+}
+
+pub fn ticks_per_ms() -> u32 {
+    unsafe { TICKS_PER_MS }
+}
+
 pub fn init() {
     disable_pic();
 
@@ -95,9 +133,15 @@ pub fn init() {
 
     unsafe {
         lapic_write(LAPIC_SPURIOUS, 0x100 | SPURIOUS_VECTOR as u32);
+    }
+
+    calibrate_timer();
+
+    let ticks_10ms = unsafe { TICKS_PER_MS * 10 };
+    unsafe {
         lapic_write(LAPIC_TIMER_DIV, 0x3);
         lapic_write(LAPIC_TIMER_LVT, (1 << 17) | TIMER_VECTOR as u32);
-        lapic_write(LAPIC_TIMER_INIT, 0x10000);
+        lapic_write(LAPIC_TIMER_INIT, ticks_10ms);
     }
 
     ioapic_set_irq(1, KEYBOARD_VECTOR);

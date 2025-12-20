@@ -10,6 +10,7 @@ static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 pub enum TaskState {
     Ready,
     Running,
+    Sleeping,
     Dead,
 }
 
@@ -17,6 +18,7 @@ pub struct Task {
     pub id: u64,
     pub state: TaskState,
     pub stack_ptr: u64,
+    pub wake_at: Option<u64>,
     _stack: Vec<u8>,
 }
 
@@ -24,10 +26,8 @@ extern "C" fn entry_wrapper(entry: fn()) -> ! {
     x86_64::instructions::interrupts::enable();
 
     entry();
-    loop {
-        x86_64::instructions::interrupts::enable();
-        x86_64::instructions::hlt();
-    }
+    super::exit();
+    unreachable!();
 }
 
 #[unsafe(naked)]
@@ -80,6 +80,7 @@ impl Task {
             state: TaskState::Ready,
             stack_ptr: sp,
             _stack: stack,
+            wake_at: None,
         }
     }
 
@@ -89,6 +90,7 @@ impl Task {
             state: TaskState::Running,
             stack_ptr: 0,
             _stack: Vec::new(),
+            wake_at: None,
         }
     }
 }

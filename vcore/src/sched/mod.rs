@@ -52,6 +52,19 @@ impl Scheduler {
 
         unsafe { switch_context(old_sp, new_sp) };
     }
+
+    pub fn reap_dead(&mut self) {
+        let mut i = self.tasks.len();
+        while i > 0 {
+            i -= 1;
+            if i != self.current && self.tasks[i].state == TaskState::Dead {
+                self.tasks.remove(i);
+                if i < self.current {
+                    self.current -= 1;
+                }
+            }
+        }
+    }
 }
 
 pub fn init() {
@@ -72,12 +85,28 @@ pub fn schedule() {
         let switch_info = {
             let mut guard = SCHEDULER.lock();
             if let Some(sched) = guard.as_mut() {
+                sched.reap_dead();
+
+                let current_tick = crate::cpu::ticks();
+                for task in sched.tasks.iter_mut() {
+                    if task.state == TaskState::Sleeping {
+                        if let Some(wake_at) = task.wake_at {
+                            if current_tick >= wake_at {
+                                task.state = TaskState::Ready;
+                                task.wake_at = None;
+                            }
+                        }
+                    }
+                }
+
                 let len = sched.tasks.len();
                 let current = sched.current;
 
                 if let Some(next) = sched.next_ready() {
                     sched.current = next;
-                    sched.tasks[current].state = TaskState::Ready;
+                    if sched.tasks[current].state == TaskState::Running {
+                        sched.tasks[current].state = TaskState::Ready;
+                    }
                     sched.tasks[next].state = TaskState::Running;
 
                     let old_sp = &mut sched.tasks[current].stack_ptr as *mut u64;
@@ -95,4 +124,34 @@ pub fn schedule() {
             unsafe { switch_context(old_sp, new_sp) };
         }
     });
+}
+
+pub fn yield_now() {
+    schedule();
+}
+
+pub fn sleep(ticks: u64) {
+    let current_tick = crate::cpu::ticks();
+
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        if let Some(sched) = SCHEDULER.lock().as_mut() {
+            sched.tasks[sched.current].wake_at = Some(current_tick + ticks);
+            sched.tasks[sched.current].state = TaskState::Sleeping;
+        }
+    });
+    schedule();
+}
+
+pub fn exit() {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        if let Some(sched) = SCHEDULER.lock().as_mut() {
+            sched.tasks[sched.current].state = TaskState::Dead;
+        }
+    });
+
+    schedule();
+
+    loop {
+        x86_64::instructions::hlt();
+    }
 }
