@@ -1,6 +1,5 @@
 use core::sync::atomic::{AtomicU64, Ordering};
 
-use spin::Mutex;
 use x86_64::structures::idt::InterruptStackFrame;
 
 use crate::{
@@ -29,7 +28,7 @@ pub extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame
 
     let mut port = Port::new(0x60);
     let scancode: u8 = unsafe { port.read() };
-
+    _ = scancode;
     unsafe {
         end_of_interrupt();
     }

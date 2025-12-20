@@ -18,23 +18,32 @@ static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
 
 static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(|| {
     let mut gdt = GlobalDescriptorTable::new();
-    let code_selector = gdt.append(Descriptor::kernel_code_segment());
-    let data_selector = gdt.append(Descriptor::kernel_data_segment());
-    let tss_selector = gdt.append(Descriptor::tss_segment(&TSS));
+
+    let kernel_code = gdt.append(Descriptor::kernel_code_segment());
+    let kernel_data = gdt.append(Descriptor::kernel_data_segment());
+
+    let user_data = gdt.append(Descriptor::user_data_segment());
+    let user_code = gdt.append(Descriptor::user_code_segment());
+
+    let tss = gdt.append(Descriptor::tss_segment(&TSS));
     (
         gdt,
         Selectors {
-            code_selector,
-            data_selector,
-            tss_selector,
+            kernel_code,
+            kernel_data,
+            user_code,
+            user_data,
+            tss,
         },
     )
 });
 
-struct Selectors {
-    code_selector: SegmentSelector,
-    data_selector: SegmentSelector,
-    tss_selector: SegmentSelector,
+pub struct Selectors {
+    pub kernel_code: SegmentSelector,
+    pub kernel_data: SegmentSelector,
+    pub user_code: SegmentSelector,
+    pub user_data: SegmentSelector,
+    pub tss: SegmentSelector,
 }
 
 pub fn init() {
@@ -43,9 +52,13 @@ pub fn init() {
 
     GDT.0.load();
     unsafe {
-        CS::set_reg(GDT.1.code_selector);
-        DS::set_reg(GDT.1.data_selector);
+        CS::set_reg(GDT.1.kernel_code);
+        DS::set_reg(GDT.1.kernel_data);
         SS::set_reg(SegmentSelector(0));
-        load_tss(GDT.1.tss_selector);
+        load_tss(GDT.1.tss);
     }
+}
+
+pub fn selectors() -> &'static Selectors {
+    &GDT.1
 }

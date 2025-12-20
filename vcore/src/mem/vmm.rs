@@ -4,7 +4,7 @@ use x86_64::{
     registers::control::Cr3,
     structures::paging::{
         FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame,
-        Size4KiB, page_table::PageTableEntry,
+        Size4KiB,
     },
 };
 

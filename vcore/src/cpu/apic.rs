@@ -113,10 +113,6 @@ fn calibrate_timer() {
     }
 }
 
-pub fn ticks_per_ms() -> u32 {
-    unsafe { TICKS_PER_MS }
-}
-
 pub fn init() {
     disable_pic();
 

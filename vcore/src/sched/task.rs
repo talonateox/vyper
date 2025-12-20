@@ -22,6 +22,7 @@ pub struct Task {
     _stack: Vec<u8>,
 }
 
+#[allow(improper_ctypes_definitions)]
 extern "C" fn entry_wrapper(entry: fn()) -> ! {
     x86_64::instructions::interrupts::enable();
 
@@ -45,7 +46,7 @@ impl Task {
 
     pub fn new(entry: fn()) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let mut stack = alloc::vec![0u8; Self::STACK_SIZE];
+        let stack = alloc::vec![0u8; Self::STACK_SIZE];
 
         let stack_top = stack.as_ptr() as u64 + Self::STACK_SIZE as u64;
         let stack_top = stack_top & !0xF;
@@ -54,7 +55,7 @@ impl Task {
 
         unsafe {
             sp -= 8;
-            (sp as *mut u64).write(entry_trampoline as u64);
+            (sp as *mut u64).write(entry_trampoline as *const () as u64);
 
             sp -= 8;
             (sp as *mut u64).write(0);

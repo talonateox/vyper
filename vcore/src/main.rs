@@ -1,7 +1,8 @@
 #![no_std]
 #![no_main]
 #![feature(abi_x86_interrupt)]
-#![feature(naked_functions)]
+#![allow(dead_code)]
+#![allow(rust_2024_compatibility)]
 
 extern crate alloc;
 
@@ -14,8 +15,6 @@ mod sched;
 
 use core::arch::asm;
 
-use alloc::string::String;
-use alloc::vec::Vec;
 use limine::BaseRevision;
 use limine::request::{
     FramebufferRequest, HhdmRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker,
@@ -46,13 +45,6 @@ static _START_MARKER: RequestsStartMarker = RequestsStartMarker::new();
 #[used]
 #[unsafe(link_section = ".requests_end_marker")]
 static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
-
-fn task_a() {
-    loop {
-        crate::print!("A");
-        sched::sleep(100);
-    }
-}
 
 #[unsafe(no_mangle)]
 unsafe extern "C" fn kmain() -> ! {
@@ -93,8 +85,6 @@ unsafe extern "C" fn kmain() -> ! {
     info!("APIC loaded");
 
     sched::init();
-
-    sched::spawn(task_a);
 
     x86_64::instructions::interrupts::enable();
 

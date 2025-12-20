@@ -1,4 +1,4 @@
-use core::arch::{asm, naked_asm};
+use core::arch::naked_asm;
 
 #[unsafe(naked)]
 pub unsafe extern "C" fn switch_context(old_sp: *mut u64, new_sp: u64) {

@@ -99,7 +99,6 @@ pub fn schedule() {
                     }
                 }
 
-                let len = sched.tasks.len();
                 let current = sched.current;
 
                 if let Some(next) = sched.next_ready() {
