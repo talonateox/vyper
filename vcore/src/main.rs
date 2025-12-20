@@ -47,6 +47,24 @@ static _START_MARKER: RequestsStartMarker = RequestsStartMarker::new();
 #[unsafe(link_section = ".requests_end_marker")]
 static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 
+fn task_a() {
+    loop {
+        crate::print!("A");
+        for _ in 0..1000000 {
+            core::hint::spin_loop();
+        }
+    }
+}
+
+fn task_b() {
+    loop {
+        crate::print!("B");
+        for _ in 0..2500000 {
+            core::hint::spin_loop();
+        }
+    }
+}
+
 #[unsafe(no_mangle)]
 unsafe extern "C" fn kmain() -> ! {
     assert!(BASE_REVISION.is_supported());
@@ -86,6 +104,9 @@ unsafe extern "C" fn kmain() -> ! {
     info!("APIC loaded");
 
     sched::init();
+
+    sched::spawn(task_a);
+    sched::spawn(task_b);
 
     x86_64::instructions::interrupts::enable();
 

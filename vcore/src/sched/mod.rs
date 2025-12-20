@@ -69,13 +69,30 @@ pub fn spawn(entry: fn()) {
 
 pub fn schedule() {
     x86_64::instructions::interrupts::without_interrupts(|| {
-        let mut guard = SCHEDULER.lock();
-        if let Some(sched) = guard.as_mut() {
-            if let Some(next) = sched.next_ready() {
-                unsafe {
-                    sched.switch_to(next);
+        let switch_info = {
+            let mut guard = SCHEDULER.lock();
+            if let Some(sched) = guard.as_mut() {
+                let len = sched.tasks.len();
+                let current = sched.current;
+
+                if let Some(next) = sched.next_ready() {
+                    sched.current = next;
+                    sched.tasks[current].state = TaskState::Ready;
+                    sched.tasks[next].state = TaskState::Running;
+
+                    let old_sp = &mut sched.tasks[current].stack_ptr as *mut u64;
+                    let new_sp = sched.tasks[next].stack_ptr;
+                    Some((old_sp, new_sp))
+                } else {
+                    None
                 }
+            } else {
+                None
             }
+        };
+
+        if let Some((old_sp, new_sp)) = switch_info {
+            unsafe { switch_context(old_sp, new_sp) };
         }
     });
 }
