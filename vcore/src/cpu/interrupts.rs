@@ -4,7 +4,8 @@ use x86_64::structures::idt::InterruptStackFrame;
 
 use crate::{
     cpu::apic::{self, LAPIC_EOI},
-    sched,
+    drivers::keyboard,
+    info, sched,
 };
 
 pub const TIMER_VECTOR: u8 = 32;
@@ -26,9 +27,15 @@ pub extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
 pub extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame) {
     use x86_64::instructions::port::Port;
 
+    info!("KB INT!");
+
     let mut port = Port::new(0x60);
     let scancode: u8 = unsafe { port.read() };
-    _ = scancode;
+
+    info!("scancode: {}", scancode);
+
+    keyboard::handle_scancode(scancode);
+
     unsafe {
         end_of_interrupt();
     }

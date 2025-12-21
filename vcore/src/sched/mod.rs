@@ -116,9 +116,7 @@ pub fn spawn_user(code: &[u8], code_addr: u64) -> Result<u64, &'static str> {
 }
 
 pub fn spawn_elf(elf_data: &[u8]) -> Result<u64, &'static str> {
-    info!("loading ELF");
     let loaded = elf::load(elf_data)?;
-    info!("loaded ELF");
 
     let flags =
         PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;

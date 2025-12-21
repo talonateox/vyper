@@ -9,7 +9,7 @@ use x86_64::{
     },
 };
 
-use crate::{cpu::gdt, error, info, print, sched};
+use crate::{cpu::gdt, drivers::keyboard, error, info, print, sched};
 
 #[repr(C, align(16))]
 struct CpuLocal {
@@ -107,6 +107,10 @@ unsafe extern "C" fn syscall_entry() {
     );
 }
 
+pub const SYS_EXIT: u64 = 0;
+pub const SYS_WRITE: u64 = 1;
+pub const SYS_READ: u64 = 2;
+
 extern "C" fn syscall_handler(
     num: u64,
     arg1: u64,
@@ -116,12 +120,12 @@ extern "C" fn syscall_handler(
     arg5: u64,
 ) -> u64 {
     match num {
-        0 => {
+        SYS_EXIT => {
             info!("task exited with code {}", arg1);
             sched::exit();
             0
         }
-        1 => {
+        SYS_WRITE => {
             let buf = arg2 as *const u8;
             let len = arg3 as usize;
 
@@ -130,6 +134,28 @@ extern "C" fn syscall_handler(
                 print!("{}", c as char);
             }
             len as u64
+        }
+        SYS_READ => {
+            let buf = arg2 as *mut u8;
+            let max_len = arg3 as usize;
+
+            while !keyboard::has_input() {
+                x86_64::instructions::hlt();
+            }
+
+            let mut count = 0;
+            while count < max_len {
+                if let Some(c) = keyboard::read_char() {
+                    unsafe { *buf.add(count) = c };
+                    count += 1;
+                    if c == b'\n' {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            count as u64
         }
         _ => {
             error!("unknown syscall: {}", num);

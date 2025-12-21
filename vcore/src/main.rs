@@ -7,10 +7,10 @@
 extern crate alloc;
 
 mod cpu;
+mod drivers;
 mod elf;
 mod fb;
 mod font;
-mod io;
 mod mem;
 mod sched;
 

@@ -2,6 +2,7 @@ use core::arch::asm;
 
 pub const SYS_EXIT: u64 = 0;
 pub const SYS_WRITE: u64 = 1;
+pub const SYS_READ: u64 = 2;
 
 pub fn exit(code: u64) -> ! {
     syscall1(SYS_EXIT, code);
@@ -10,6 +11,16 @@ pub fn exit(code: u64) -> ! {
 
 pub fn write(fd: u64, buf: &[u8]) -> u64 {
     syscall3(SYS_WRITE, fd, buf.as_ptr() as u64, buf.len() as u64)
+}
+
+pub fn read(fd: u64, buf: &mut [u8]) -> u64 {
+    syscall3(SYS_READ, fd, buf.as_mut_ptr() as u64, buf.len() as u64)
+}
+
+pub fn getch() -> u8 {
+    let mut buf = [0u8; 1];
+    read(0, &mut buf);
+    buf[0]
 }
 
 #[inline(always)]
