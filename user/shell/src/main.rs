@@ -4,18 +4,18 @@
 mod commands;
 mod input;
 
-use vlib::syscalls::{exit, write};
+use vlib::{print, println, syscalls::exit};
 
 use crate::{commands::execute, input::read_line};
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
-    write(1, b"Welcome to Vyper Shell!\n");
+    println!("herro, welcome to vshell(vyper shell)");
 
     let mut buf = [0u8; 256];
 
     loop {
-        write(1, b"> ");
+        print!("> ");
 
         let len = read_line(&mut buf);
         let line = &buf[..len];
