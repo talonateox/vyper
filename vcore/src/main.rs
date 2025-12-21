@@ -13,9 +13,11 @@ mod fb;
 mod font;
 mod mem;
 mod sched;
+mod vfs;
 
 use core::arch::asm;
 
+use alloc::boxed::Box;
 use limine::BaseRevision;
 use limine::request::{
     FramebufferRequest, HhdmRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker,
@@ -48,6 +50,15 @@ static _START_MARKER: RequestsStartMarker = RequestsStartMarker::new();
 static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 
 static INIT_ELF: &[u8] = include_bytes!("../../target/x86_64-unknown-none/release/shell");
+
+fn setup_fs() {
+    vfs::mount("/", Box::new(vfs::TmpFs::new())).expect("failed to mount root");
+    vfs::mkdir("/system").unwrap();
+    vfs::mkdir("/system/cmd").unwrap();
+    vfs::mkdir("/system/lib").unwrap();
+    vfs::mkdir("/live").unwrap();
+    vfs::mkdir("/live/tasks").unwrap();
+}
 
 #[unsafe(no_mangle)]
 unsafe extern "C" fn kmain() -> ! {
@@ -86,6 +97,8 @@ unsafe extern "C" fn kmain() -> ! {
 
     cpu::apic::init();
     info!("APIC loaded");
+
+    setup_fs();
 
     sched::init();
 

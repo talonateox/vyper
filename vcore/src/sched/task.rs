@@ -4,6 +4,8 @@ use core::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
+use crate::vfs::fd::FdTable;
+
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -28,6 +30,7 @@ pub struct Task {
     pub wake_at: Option<u64>,
     pub user_entry: u64,
     pub user_stack: u64,
+    pub fds: FdTable,
     _stack: Vec<u8>,
 }
 
@@ -111,6 +114,7 @@ impl Task {
             wake_at: None,
             user_entry: 0,
             user_stack: 0,
+            fds: FdTable::new(),
             _stack: stack,
         }
     }
@@ -149,6 +153,7 @@ impl Task {
             wake_at: None,
             user_entry,
             user_stack,
+            fds: FdTable::new(),
             _stack: stack,
         }
     }
@@ -162,6 +167,7 @@ impl Task {
             wake_at: None,
             user_entry: 0,
             user_stack: 0,
+            fds: FdTable::new(),
             _stack: Vec::new(),
         }
     }

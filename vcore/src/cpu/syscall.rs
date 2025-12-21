@@ -9,7 +9,7 @@ use x86_64::{
     },
 };
 
-use crate::{cpu::gdt, drivers::keyboard, error, info, print, sched};
+use crate::{cpu::gdt, drivers::keyboard, error, print, sched, vfs};
 
 #[repr(C, align(16))]
 struct CpuLocal {
@@ -110,6 +110,17 @@ unsafe extern "C" fn syscall_entry() {
 pub const SYS_EXIT: u64 = 0;
 pub const SYS_WRITE: u64 = 1;
 pub const SYS_READ: u64 = 2;
+pub const SYS_OPEN: u64 = 3;
+pub const SYS_CLOSE: u64 = 4;
+pub const SYS_GETDENTS: u64 = 5;
+
+pub const O_RDONLY: u64 = 0;
+pub const O_WRONLY: u64 = 1;
+pub const O_RDWR: u64 = 2;
+pub const O_CREAT: u64 = 64;
+pub const O_TRUNC: u64 = 512;
+pub const O_APPEND: u64 = 1024;
+pub const O_DIRECTORY: u64 = 65536;
 
 extern "C" fn syscall_handler(
     num: u64,
@@ -117,46 +128,203 @@ extern "C" fn syscall_handler(
     arg2: u64,
     arg3: u64,
     arg4: u64,
-    arg5: u64,
+    _arg5: u64,
 ) -> u64 {
     match num {
         SYS_EXIT => {
-            info!("task exited with code {}", arg1);
+            crate::info!("task exited with code {}", arg1);
             sched::exit();
             0
         }
+
         SYS_WRITE => {
+            let fd = arg1 as usize;
             let buf = arg2 as *const u8;
             let len = arg3 as usize;
 
-            for i in 0..len {
-                let c = unsafe { *buf.add(i) };
-                print!("{}", c as char);
+            if fd == 1 || fd == 2 {
+                for i in 0..len {
+                    let c = unsafe { *buf.add(i) };
+                    print!("{}", c as char);
+                }
+                return len as u64;
             }
-            len as u64
+
+            let result = sched::with_fd_table(|table| match table.get_mut(fd)? {
+                vfs::FdKind::File(handle) => {
+                    let slice = unsafe { core::slice::from_raw_parts(buf, len) };
+                    handle.write(slice)
+                }
+                vfs::FdKind::Stdout | vfs::FdKind::Stderr => {
+                    for i in 0..len {
+                        let c = unsafe { *buf.add(i) };
+                        print!("{}", c as char);
+                    }
+                    Ok(len)
+                }
+                _ => Err(vfs::VfsError::PermissionDenied),
+            });
+
+            result.unwrap_or(0) as u64
         }
+
         SYS_READ => {
+            let fd = arg1 as usize;
             let buf = arg2 as *mut u8;
-            let max_len = arg3 as usize;
+            let len = arg3 as usize;
 
-            while !keyboard::has_input() {
-                x86_64::instructions::hlt();
-            }
+            if fd == 0 {
+                while !keyboard::has_input() {
+                    x86_64::instructions::hlt();
+                }
 
-            let mut count = 0;
-            while count < max_len {
-                if let Some(c) = keyboard::read_char() {
-                    unsafe { *buf.add(count) = c };
-                    count += 1;
-                    if c == b'\n' {
+                let mut count = 0;
+                while count < len {
+                    if let Some(c) = keyboard::read_char() {
+                        unsafe { *buf.add(count) = c };
+                        count += 1;
+                        if c == b'\n' {
+                            break;
+                        }
+                    } else {
                         break;
                     }
-                } else {
-                    break;
+                }
+                return count as u64;
+            }
+
+            let result = sched::with_fd_table(|table| match table.get_mut(fd)? {
+                vfs::FdKind::File(handle) => {
+                    let slice = unsafe { core::slice::from_raw_parts_mut(buf, len) };
+                    handle.read(slice)
+                }
+                vfs::FdKind::Stdin => {
+                    while !keyboard::has_input() {
+                        x86_64::instructions::hlt();
+                    }
+                    let mut count = 0;
+                    while count < len {
+                        if let Some(c) = keyboard::read_char() {
+                            unsafe { *buf.add(count) = c };
+                            count += 1;
+                            if c == b'\n' {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                    Ok(count)
+                }
+                _ => Err(vfs::VfsError::PermissionDenied),
+            });
+
+            result.unwrap_or(0) as u64
+        }
+
+        SYS_OPEN => {
+            let path_ptr = arg1 as *const u8;
+            let path_len = arg2 as usize;
+            let flags = arg3;
+
+            let path = unsafe {
+                let slice = core::slice::from_raw_parts(path_ptr, path_len);
+                core::str::from_utf8_unchecked(slice)
+            };
+
+            if flags & O_DIRECTORY != 0 {
+                match vfs::readdir(path) {
+                    Ok(entries) => {
+                        let result = sched::with_fd_table(|table| {
+                            table.alloc(vfs::FdKind::Directory {
+                                path: path.into(),
+                                entries,
+                                position: 0,
+                            })
+                        });
+                        result.map(|fd| fd as u64).unwrap_or(u64::MAX)
+                    }
+                    Err(_) => u64::MAX,
+                }
+            } else {
+                let open_flags = vfs::OpenFlags {
+                    read: (flags & 3) != O_WRONLY,
+                    write: (flags & 3) != O_RDONLY,
+                    create: (flags & O_CREAT) != 0,
+                    truncate: (flags & O_TRUNC) != 0,
+                    append: (flags & O_APPEND) != 0,
+                };
+
+                match vfs::open(path, open_flags) {
+                    Ok(handle) => {
+                        let result =
+                            sched::with_fd_table(|table| table.alloc(vfs::FdKind::File(handle)));
+                        result.map(|fd| fd as u64).unwrap_or(u64::MAX)
+                    }
+                    Err(_) => u64::MAX,
                 }
             }
-            count as u64
         }
+
+        SYS_CLOSE => {
+            let fd = arg1 as usize;
+            let result = sched::with_fd_table(|table| table.close(fd));
+            if result.is_ok() { 0 } else { u64::MAX }
+        }
+
+        SYS_GETDENTS => {
+            let fd = arg1 as usize;
+            let buf_ptr = arg2 as *mut u8;
+            let buf_len = arg3 as usize;
+
+            let result = sched::with_fd_table(|table| match table.get_mut(fd)? {
+                vfs::FdKind::Directory {
+                    entries, position, ..
+                } => {
+                    let mut offset = 0usize;
+
+                    while *position < entries.len() {
+                        let entry = &entries[*position];
+                        let name_bytes = entry.name.as_bytes();
+                        let entry_size = 1 + 2 + name_bytes.len();
+
+                        if offset + entry_size > buf_len {
+                            break;
+                        }
+
+                        unsafe {
+                            let file_type: u8 = match entry.file_type {
+                                vfs::FileType::File => 1,
+                                vfs::FileType::Directory => 2,
+                                vfs::FileType::Device => 3,
+                            };
+                            *buf_ptr.add(offset) = file_type;
+                            offset += 1;
+
+                            let name_len = name_bytes.len() as u16;
+                            *buf_ptr.add(offset) = (name_len & 0xFF) as u8;
+                            *buf_ptr.add(offset + 1) = (name_len >> 8) as u8;
+                            offset += 2;
+
+                            core::ptr::copy_nonoverlapping(
+                                name_bytes.as_ptr(),
+                                buf_ptr.add(offset),
+                                name_bytes.len(),
+                            );
+                            offset += name_bytes.len();
+                        }
+
+                        *position += 1;
+                    }
+
+                    Ok(offset)
+                }
+                _ => Err(vfs::VfsError::NotADirectory),
+            });
+
+            result.unwrap_or(0) as u64
+        }
+
         _ => {
             error!("unknown syscall: {}", num);
             u64::MAX

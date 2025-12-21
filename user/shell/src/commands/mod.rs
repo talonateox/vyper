@@ -5,6 +5,7 @@ use crate::input::parse_args;
 mod echo;
 mod exit;
 mod help;
+mod ls;
 
 pub fn execute(line: &[u8]) {
     let mut argv: [&[u8]; 16] = [&[]; 16];
@@ -20,6 +21,7 @@ pub fn execute(line: &[u8]) {
     match cmd {
         b"help" => help::run(args),
         b"echo" => echo::run(args),
+        b"ls" => ls::run(args),
         b"exit" => {
             write(1, b"byebye o7\n");
             vlib::syscalls::exit(0);

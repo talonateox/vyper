@@ -7,7 +7,11 @@ use switch::switch_context;
 use task::{Task, TaskState};
 use x86_64::{VirtAddr, structures::paging::PageTableFlags};
 
-use crate::{elf, info, mem::vmm};
+use crate::{
+    elf, info,
+    mem::vmm,
+    vfs::{self, VfsError, VfsResult, fd::FdTable},
+};
 
 pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
 
@@ -67,6 +71,10 @@ impl Scheduler {
                 }
             }
         }
+    }
+
+    pub fn current_task(&mut self) -> Option<&mut Task> {
+        self.tasks.get_mut(self.current)
     }
 }
 
@@ -213,4 +221,14 @@ pub fn exit() {
     loop {
         x86_64::instructions::hlt();
     }
+}
+
+pub fn with_fd_table<F, R>(f: F) -> VfsResult<R>
+where
+    F: FnOnce(&mut FdTable) -> VfsResult<R>,
+{
+    let mut guard = SCHEDULER.lock();
+    let sched = guard.as_mut().ok_or(VfsError::IoError)?;
+    let task = sched.current_task().ok_or(VfsError::IoError)?;
+    f(&mut task.fds)
 }
