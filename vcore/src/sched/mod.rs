@@ -1,6 +1,5 @@
 pub mod switch;
 pub mod task;
-pub mod user;
 
 use alloc::collections::VecDeque;
 use spin::Mutex;
