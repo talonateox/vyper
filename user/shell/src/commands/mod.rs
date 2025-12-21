@@ -1,4 +1,4 @@
-use vlib::syscalls::write;
+use vlib::{as_str, println};
 
 use crate::input::parse_args;
 
@@ -26,14 +26,14 @@ pub fn execute(line: &[u8]) {
         b"cat" => cat::run(args),
         b"ps" => ps::run(args),
         b"exit" => {
-            write(1, b"byebye o7\n");
+            println!("byebye o7");
             vlib::syscalls::exit(0);
         }
         _ => {
-            write(1, b"command '");
-            write(1, cmd);
-            write(1, b"' doesnt exist.\n");
-            write(1, b"use 'help' for a list of commands.\n");
+            println!(
+                "command '{}' doesnt exist\nuse 'help' for a list of commands.",
+                as_str!(cmd)
+            );
         }
     }
 }

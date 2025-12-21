@@ -1,8 +1,11 @@
-use vlib::syscalls::{O_RDONLY, close, open, read, write};
+use vlib::{
+    as_str, print, println,
+    syscalls::{O_RDONLY, close, open, read},
+};
 
 pub fn run(args: &[&[u8]]) {
     if args.is_empty() {
-        write(1, b"usage: cat <file>\n");
+        println!("usage: cat <file>");
         return;
     }
 
@@ -10,9 +13,7 @@ pub fn run(args: &[&[u8]]) {
 
     let fd = open(path, O_RDONLY);
     if fd < 0 {
-        write(1, b"cat: cannot open '");
-        write(1, path);
-        write(1, b"'\n");
+        println!("cat: cannot open '{}'", as_str!(path));
         return;
     }
 
@@ -24,7 +25,7 @@ pub fn run(args: &[&[u8]]) {
         if bytes_read == 0 {
             break;
         }
-        write(1, &buf[..bytes_read as usize]);
+        print!("{}", as_str!(&buf[..bytes_read as usize]));
     }
 
     close(fd);

@@ -1,11 +1,11 @@
-use vlib::syscalls::write;
+use vlib::{as_str, print, println};
 
 pub fn run(args: &[&[u8]]) {
     for (i, arg) in args.iter().enumerate() {
         if i > 0 {
-            write(1, b" ");
+            print!(" ");
         }
-        write(1, arg);
+        print!("{}", as_str!(arg));
     }
-    write(1, b"\n");
+    println!();
 }

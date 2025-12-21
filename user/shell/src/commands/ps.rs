@@ -1,9 +1,12 @@
-use vlib::syscalls::{DirEntryIter, O_DIRECTORY, O_RDONLY, close, getdents, open, read, write};
+use vlib::{
+    as_str, println,
+    syscalls::{DirEntryIter, O_DIRECTORY, O_RDONLY, close, getdents, open, read},
+};
 
 pub fn run(_args: &[&[u8]]) {
     let fd = open(b"/live/tasks", O_RDONLY | O_DIRECTORY);
     if fd < 0 {
-        write(1, b"ps: failed to open /live/tasks\n");
+        println!("ps: failed to open /live/tasks");
         return;
     }
 
@@ -89,10 +92,5 @@ fn print_status(status: &[u8]) {
         }
     }
 
-    write(1, pid);
-    write(1, b"\t");
-    write(1, state);
-    write(1, b"\t\t");
-    write(1, mode);
-    write(1, b"\n");
+    println!("{}\t{}\t\t{}", as_str!(pid), as_str!(state), as_str!(mode));
 }
