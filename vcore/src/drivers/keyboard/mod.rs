@@ -1,5 +1,7 @@
 use spin::Mutex;
 
+use crate::info;
+
 const BUFFER_SIZE: usize = 256;
 
 static KEYBOARD: Mutex<Keyboard> = Mutex::new(Keyboard::new());
@@ -8,6 +10,8 @@ struct Keyboard {
     buffer: [u8; BUFFER_SIZE],
     read_pos: usize,
     write_pos: usize,
+    shift_pressed: bool,
+    caps_lock: bool,
 }
 
 impl Keyboard {
@@ -16,6 +20,8 @@ impl Keyboard {
             buffer: [0; BUFFER_SIZE],
             read_pos: 0,
             write_pos: 0,
+            shift_pressed: false,
+            caps_lock: false,
         }
     }
 
@@ -42,24 +48,51 @@ impl Keyboard {
     }
 }
 
-static SCANCODE_MAP: [u8; 128] = [
-    0, 27, b'1', b'2', b'3', b'4', b'5', b'6', b'7', b'8', b'9', b'0', b'-', b'=', 8, b'\t', b'q',
-    b'w', b'e', b'r', b't', b'y', b'u', b'i', b'o', b'p', b'[', b']', b'\n', 0, b'a', b's', b'd',
-    b'f', b'g', b'h', b'j', b'k', b'l', b';', b'\'', b'`', 0, b'\\', b'z', b'x', b'c', b'v', b'b',
-    b'n', b'm', b',', b'.', b'/', 0, b'*', 0, b' ', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-];
+const SCANCODE_LEFT_SHIFT: u8 = 0x2A;
+const SCANCODE_RIGHT_SHIFT: u8 = 0x36;
+const SCANCODE_CAPS_LOCK: u8 = 0x3A;
 
 pub fn handle_scancode(scancode: u8) {
+    info!("Scancode: 0x{:02x} ({})", scancode, scancode);
+
+    let mut kb = KEYBOARD.lock();
+
     if scancode & 0x80 != 0 {
+        let key = scancode & 0x7F;
+        if key == SCANCODE_LEFT_SHIFT || key == SCANCODE_RIGHT_SHIFT {
+            kb.shift_pressed = false;
+        }
         return;
     }
 
-    if let Some(&ascii) = SCANCODE_MAP.get(scancode as usize) {
-        if ascii != 0 {
-            KEYBOARD.lock().push(ascii);
+    match scancode {
+        SCANCODE_LEFT_SHIFT | SCANCODE_RIGHT_SHIFT => {
+            kb.shift_pressed = true;
+            return;
         }
+        SCANCODE_CAPS_LOCK => {
+            kb.caps_lock = !kb.caps_lock;
+            return;
+        }
+        _ => {}
+    }
+
+    let ascii = b'a';
+
+    info!("{}", scancode);
+
+    let ascii = if kb.caps_lock && ascii.is_ascii_alphabetic() {
+        if kb.shift_pressed {
+            ascii.to_ascii_lowercase()
+        } else {
+            ascii.to_ascii_uppercase()
+        }
+    } else {
+        ascii
+    };
+
+    if ascii != 0 {
+        kb.push(ascii);
     }
 }
 

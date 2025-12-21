@@ -23,7 +23,7 @@ const CALIBRATE_MS: u32 = 10;
 
 static mut TICKS_PER_MS: u32 = 0;
 
-use crate::{cpu::interrupts::KEYBOARD_VECTOR, mem::vmm};
+use crate::{cpu::interrupts::KEYBOARD_VECTOR, info, mem::vmm};
 
 use super::interrupts::{SPURIOUS_VECTOR, TIMER_VECTOR};
 
@@ -113,6 +113,45 @@ fn calibrate_timer() {
     }
 }
 
+pub fn init_keyboard_controller() {
+    use x86_64::instructions::port::Port;
+
+    unsafe {
+        let mut cmd_port: Port<u8> = Port::new(0x64);
+        let mut data_port: Port<u8> = Port::new(0x60);
+
+        while cmd_port.read() & 0x02 != 0 {}
+
+        cmd_port.write(0xAD);
+
+        while cmd_port.read() & 0x02 != 0 {}
+
+        cmd_port.write(0xA7);
+
+        let _ = data_port.read();
+
+        while cmd_port.read() & 0x02 != 0 {}
+        cmd_port.write(0x20);
+        while cmd_port.read() & 0x01 == 0 {}
+        let mut config = data_port.read();
+
+        config |= 0x01;
+        config &= !0x40;
+
+        while cmd_port.read() & 0x02 != 0 {}
+        cmd_port.write(0x60);
+        while cmd_port.read() & 0x02 != 0 {}
+        data_port.write(config);
+
+        while cmd_port.read() & 0x02 != 0 {}
+        cmd_port.write(0xAE);
+
+        while cmd_port.read() & 0x01 != 0 {
+            let _ = data_port.read();
+        }
+    }
+}
+
 pub fn init() {
     disable_pic();
 
@@ -140,5 +179,6 @@ pub fn init() {
         lapic_write(LAPIC_TIMER_INIT, ticks_10ms);
     }
 
+    init_keyboard_controller();
     ioapic_set_irq(1, KEYBOARD_VECTOR);
 }

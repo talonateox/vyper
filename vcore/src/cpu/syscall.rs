@@ -37,7 +37,7 @@ pub fn init() {
         .expect("failed to set STAR");
 
         LStar::write(VirtAddr::new(syscall_entry as *const () as u64));
-        SFMask::write(RFlags::INTERRUPT_FLAG);
+        SFMask::write(RFlags::empty());
 
         let efer = Efer::read();
         Efer::write(efer | EferFlags::SYSTEM_CALL_EXTENSIONS);

@@ -67,10 +67,10 @@ impl Terminal {
 
     fn newline(&mut self) {
         self.x = 0;
-        self.y += 1;
-        if self.y > self.max_y {
+        if self.y >= self.max_y - 1 {
             self.scroll();
-            self.y = self.max_y;
+        } else {
+            self.y += 1;
         }
     }
 
@@ -81,7 +81,7 @@ impl Terminal {
             '\x08' => {
                 if self.x > 0 {
                     self.x -= 1;
-                    // clear
+                    self.clear();
                 }
             }
             c if c >= ' ' => {
@@ -101,13 +101,12 @@ impl Terminal {
             _ => {}
         }
     }
-
     pub fn clear(&mut self) {
         unsafe {
             core::ptr::write_bytes(self.fb.address, 0, self.fb.height * self.fb.pitch);
         }
         self.x = 0;
-        self.y = 1;
+        self.y = 0;
     }
 }
 
