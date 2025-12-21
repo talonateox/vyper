@@ -1,16 +1,17 @@
 use alloc::{
     boxed::Box,
     string::{String, ToString},
-    vec,
     vec::Vec,
 };
 use spin::{Lazy, Mutex};
 
 pub mod fd;
+pub mod tasksfs;
 pub mod tmpfs;
 pub mod types;
 
-pub use fd::{FdKind, FdTable};
+pub use fd::FdKind;
+pub use tasksfs::TasksFs;
 pub use tmpfs::TmpFs;
 pub use types::*;
 
@@ -41,7 +42,6 @@ impl Vfs {
         Ok(())
     }
 
-    /// Unmount a filesystem
     pub fn unmount(&mut self, path: &str) -> VfsResult<()> {
         let path = normalize_path(path);
         let idx = self

@@ -25,6 +25,7 @@ use limine::request::{
 use x86_64::VirtAddr;
 
 use crate::fb::{Framebuffer, terminal};
+use crate::vfs::TasksFs;
 
 #[used]
 #[unsafe(link_section = ".requests")]
@@ -57,7 +58,9 @@ fn setup_fs() {
     vfs::mkdir("/system/cmd").unwrap();
     vfs::mkdir("/system/lib").unwrap();
     vfs::mkdir("/live").unwrap();
+
     vfs::mkdir("/live/tasks").unwrap();
+    vfs::mount("/live/tasks", Box::new(TasksFs::new())).expect("failed to mount tasksfs");
 }
 
 #[unsafe(no_mangle)]

@@ -78,6 +78,11 @@ impl Terminal {
         match c {
             '\n' => self.newline(),
             '\r' => self.x = 0,
+            '\t' => {
+                for _ in 0..4 {
+                    self.put_char(' ');
+                }
+            }
             '\x08' => {
                 if self.x > 0 {
                     self.x -= 1;

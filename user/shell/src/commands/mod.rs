@@ -2,10 +2,11 @@ use vlib::syscalls::write;
 
 use crate::input::parse_args;
 
+mod cat;
 mod echo;
-mod exit;
 mod help;
 mod ls;
+mod ps;
 
 pub fn execute(line: &[u8]) {
     let mut argv: [&[u8]; 16] = [&[]; 16];
@@ -22,6 +23,8 @@ pub fn execute(line: &[u8]) {
         b"help" => help::run(args),
         b"echo" => echo::run(args),
         b"ls" => ls::run(args),
+        b"cat" => cat::run(args),
+        b"ps" => ps::run(args),
         b"exit" => {
             write(1, b"byebye o7\n");
             vlib::syscalls::exit(0);

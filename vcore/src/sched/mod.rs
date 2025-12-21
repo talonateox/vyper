@@ -10,13 +10,13 @@ use x86_64::{VirtAddr, structures::paging::PageTableFlags};
 use crate::{
     elf, info,
     mem::vmm,
-    vfs::{self, VfsError, VfsResult, fd::FdTable},
+    vfs::{VfsError, VfsResult, fd::FdTable},
 };
 
 pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
 
 pub struct Scheduler {
-    tasks: VecDeque<Task>,
+    pub tasks: VecDeque<Task>,
     current: usize,
 }
 
