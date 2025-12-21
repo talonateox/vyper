@@ -81,7 +81,15 @@ impl Terminal {
             '\x08' => {
                 if self.x > 0 {
                     self.x -= 1;
-                    self.clear();
+                    self.font.draw_char(
+                        &mut self.fb,
+                        ' ',
+                        self.x * self.font.glyph_width * self.scale,
+                        self.y * self.font.glyph_height * self.scale,
+                        self.fg,
+                        self.bg,
+                        self.scale,
+                    );
                 }
             }
             c if c >= ' ' => {
@@ -94,6 +102,7 @@ impl Terminal {
                     self.x * self.font.glyph_width * self.scale,
                     self.y * self.font.glyph_height * self.scale,
                     self.fg,
+                    self.bg,
                     self.scale,
                 );
                 self.x += 1;
@@ -101,9 +110,14 @@ impl Terminal {
             _ => {}
         }
     }
+
     pub fn clear(&mut self) {
-        unsafe {
-            core::ptr::write_bytes(self.fb.address, 0, self.fb.height * self.fb.pitch);
+        let pixel_count = self.fb.width * self.fb.height;
+        let ptr = self.fb.address as *mut u32;
+        for i in 0..pixel_count {
+            unsafe {
+                ptr.add(i).write_volatile(self.bg);
+            }
         }
         self.x = 0;
         self.y = 0;

@@ -23,7 +23,7 @@ const CALIBRATE_MS: u32 = 10;
 
 static mut TICKS_PER_MS: u32 = 0;
 
-use crate::{cpu::interrupts::KEYBOARD_VECTOR, info, mem::vmm};
+use crate::{cpu::interrupts::KEYBOARD_VECTOR, mem::vmm};
 
 use super::interrupts::{SPURIOUS_VECTOR, TIMER_VECTOR};
 

@@ -9,7 +9,7 @@ use crate::{
             timer_handler,
         },
     },
-    info, print, println,
+    info, println,
 };
 
 static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {

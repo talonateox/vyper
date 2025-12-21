@@ -5,7 +5,7 @@ use x86_64::structures::idt::InterruptStackFrame;
 use crate::{
     cpu::apic::{self, LAPIC_EOI},
     drivers::keyboard,
-    info, sched,
+    sched,
 };
 
 pub const TIMER_VECTOR: u8 = 32;
