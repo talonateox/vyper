@@ -8,7 +8,7 @@ use switch::switch_context;
 use task::{Task, TaskState};
 use x86_64::{VirtAddr, structures::paging::PageTableFlags};
 
-use crate::mem::vmm;
+use crate::{elf, info, mem::vmm};
 
 pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
 
@@ -108,6 +108,33 @@ pub fn spawn_user(code: &[u8], code_addr: u64) -> Result<u64, &'static str> {
 
     let task = Task::new_user(code_addr, user_stack_top);
     let id = task.id;
+
+    if let Some(sched) = SCHEDULER.lock().as_mut() {
+        sched.add_task(task);
+    }
+
+    Ok(id)
+}
+
+pub fn spawn_elf(elf_data: &[u8]) -> Result<u64, &'static str> {
+    info!("loading ELF");
+    let loaded = elf::load(elf_data)?;
+    info!("loaded ELF");
+
+    let flags =
+        PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
+
+    let user_stack_base: u64 = 0x7FFF_FFFF_0000;
+    for i in 0..4 {
+        let addr = VirtAddr::new(user_stack_base - (i * 4096));
+        vmm::map_page_alloc(addr, flags)?;
+    }
+
+    let user_stack_top = user_stack_base + 4096 - 8;
+
+    let task = Task::new_user(loaded.entry, user_stack_top);
+    let id = task.id;
+    info!("spawned task with PID: {}", id);
 
     if let Some(sched) = SCHEDULER.lock().as_mut() {
         sched.add_task(task);

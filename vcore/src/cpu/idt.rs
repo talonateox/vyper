@@ -39,7 +39,7 @@ pub fn print_stack_frame(frame: InterruptStackFrame) {
     println!("  RSP: {:016x}", frame.stack_pointer.as_u64());
     println!("  RFL: {:016x}", frame.cpu_flags);
     println!("  CS:  {:04x}", frame.code_segment.0);
-    print!("  SS:  {:04x}", frame.stack_segment.0)
+    println!("  SS:  {:04x}", frame.stack_segment.0)
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {

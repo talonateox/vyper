@@ -7,6 +7,7 @@
 extern crate alloc;
 
 mod cpu;
+mod elf;
 mod fb;
 mod font;
 mod io;
@@ -45,6 +46,8 @@ static _START_MARKER: RequestsStartMarker = RequestsStartMarker::new();
 #[used]
 #[unsafe(link_section = ".requests_end_marker")]
 static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
+
+static INIT_ELF: &[u8] = include_bytes!("../../target/x86_64-unknown-none/release/shell");
 
 #[unsafe(no_mangle)]
 unsafe extern "C" fn kmain() -> ! {
@@ -85,6 +88,8 @@ unsafe extern "C" fn kmain() -> ! {
     info!("APIC loaded");
 
     sched::init();
+
+    sched::spawn_elf(INIT_ELF).expect("failed to spawn init");
 
     x86_64::instructions::interrupts::enable();
 

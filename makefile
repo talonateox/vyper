@@ -1,8 +1,6 @@
-# Nuke built-in rules and variables.
 MAKEFLAGS += -rR
 .SUFFIXES:
 
-# Convenience macro to reliably declare user overridable variables.
 override USER_VARIABLE = $(if $(filter $(origin $(1)),default undefined),$(eval override $(1) := $(2)))
 
 $(call USER_VARIABLE,KARCH,x86_64)
@@ -82,10 +80,14 @@ limine/limine:
 kernel:
 	$(MAKE) -C vcore
 
-$(IMAGE_NAME).iso: limine/limine kernel
+.PHONY: user
+user:
+	$(MAKE) -C user
+
+$(IMAGE_NAME).iso: limine/limine user kernel
 	rm -rf iso_root
 	mkdir -p iso_root/boot
-	cp -v vcore/vcore iso_root/boot/krnl
+	cp -v target/x86_64-unknown-none/release/vcore iso_root/boot/krnl
 	mkdir -p iso_root/boot/limine
 	cp -v limine.conf iso_root/boot/limine/
 	mkdir -p iso_root/EFI/BOOT
@@ -100,14 +102,14 @@ $(IMAGE_NAME).iso: limine/limine kernel
 	./limine/limine bios-install $(IMAGE_NAME).iso
 	rm -rf iso_root
 
-$(IMAGE_NAME).hdd: limine/limine kernel
+$(IMAGE_NAME).hdd: limine/limine user kernel
 	rm -f $(IMAGE_NAME).hdd
 	dd if=/dev/zero bs=1M count=0 seek=64 of=$(IMAGE_NAME).hdd
 	sgdisk $(IMAGE_NAME).hdd -n 1:2048 -t 1:ef00
 	./limine/limine bios-install $(IMAGE_NAME).hdd
 	mformat -i $(IMAGE_NAME).hdd@@1M
 	mmd -i $(IMAGE_NAME).hdd@@1M ::/EFI ::/EFI/BOOT ::/boot ::/boot/limine
-	mcopy -i $(IMAGE_NAME).hdd@@1M vcore/vcore ::/boot
+	mcopy -i $(IMAGE_NAME).hdd@@1M target/x86_64-unknown-none/release/vcore ::/boot/krnl
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine.conf ::/boot/limine
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/limine-bios.sys ::/boot/limine
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/BOOTX64.EFI ::/EFI/BOOT
@@ -115,10 +117,9 @@ $(IMAGE_NAME).hdd: limine/limine kernel
 
 .PHONY: clean
 clean:
-	$(MAKE) -C vcore clean
+	cargo clean
 	rm -rf iso_root $(IMAGE_NAME).iso $(IMAGE_NAME).hdd
 
 .PHONY: distclean
 distclean: clean
-	$(MAKE) -C vcore distclean
 	rm -rf limine ovmf
