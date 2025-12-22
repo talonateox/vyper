@@ -1,4 +1,4 @@
-use crate::vfs::BlockDevice;
+use crate::{drivers, vfs::BlockDevice};
 
 pub struct AtaBlockDevice;
 
@@ -15,7 +15,7 @@ impl BlockDevice for AtaBlockDevice {
         }
 
         let mut sector = [0u8; 512];
-        crate::drivers::ata::read_sector(block as u32, &mut sector)?;
+        drivers::ata::read_sector(block as u32, &mut sector)?;
         buffer[..512].copy_from_slice(&sector);
         Ok(())
     }
@@ -27,7 +27,7 @@ impl BlockDevice for AtaBlockDevice {
 
         let mut sector = [0u8; 512];
         sector.copy_from_slice(&buffer[..512]);
-        crate::drivers::ata::write_sector(block as u32, &sector)?;
+        drivers::ata::write_sector(block as u32, &sector)?;
         Ok(())
     }
 

@@ -8,7 +8,7 @@ use task::{Task, TaskState};
 use x86_64::{VirtAddr, structures::paging::PageTableFlags};
 
 use crate::{
-    elf, info,
+    cpu, elf, info,
     mem::vmm,
     vfs::{VfsError, VfsResult, fd::FdTable},
 };
@@ -155,7 +155,7 @@ pub fn schedule() {
             if let Some(sched) = guard.as_mut() {
                 sched.reap_dead();
 
-                let current_tick = crate::cpu::ticks();
+                let current_tick = cpu::ticks();
                 for task in sched.tasks.iter_mut() {
                     if task.state == TaskState::Sleeping {
                         if let Some(wake_at) = task.wake_at {
@@ -198,7 +198,7 @@ pub fn yield_now() {
 }
 
 pub fn sleep(ticks: u64) {
-    let current_tick = crate::cpu::ticks();
+    let current_tick = cpu::ticks();
 
     x86_64::instructions::interrupts::without_interrupts(|| {
         if let Some(sched) = SCHEDULER.lock().as_mut() {

@@ -1,7 +1,10 @@
 use alloc::{boxed::Box, format, string::ToString, vec, vec::Vec};
 
 use super::types::*;
-use crate::sched::SCHEDULER;
+use crate::sched::{
+    SCHEDULER,
+    task::{TaskMode, TaskState},
+};
 
 pub struct TasksFs;
 
@@ -77,14 +80,14 @@ impl Filesystem for TasksFs {
         let content = match file {
             "status" => {
                 let state = match task.state {
-                    crate::sched::task::TaskState::Ready => "ready",
-                    crate::sched::task::TaskState::Running => "running",
-                    crate::sched::task::TaskState::Sleeping => "sleeping",
-                    crate::sched::task::TaskState::Dead => "dead",
+                    TaskState::Ready => "ready",
+                    TaskState::Running => "running",
+                    TaskState::Sleeping => "sleeping",
+                    TaskState::Dead => "dead",
                 };
                 let mode = match task.mode {
-                    crate::sched::task::TaskMode::Kernel => "kernel",
-                    crate::sched::task::TaskMode::User => "user",
+                    TaskMode::Kernel => "kernel",
+                    TaskMode::User => "user",
                 };
                 format!("pid: {}\nstate: {}\nmode: {}\n", task.id, state, mode).into_bytes()
             }
@@ -121,7 +124,7 @@ impl Filesystem for TasksFs {
                 let entries = sched
                     .tasks
                     .iter()
-                    .filter(|t| t.state != crate::sched::task::TaskState::Dead)
+                    .filter(|t| t.state != TaskState::Dead)
                     .map(|t| DirEntry {
                         name: format!("{}", t.id),
                         file_type: FileType::Directory,

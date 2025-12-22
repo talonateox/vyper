@@ -9,7 +9,7 @@ use x86_64::{
     },
 };
 
-use crate::{cpu::gdt, drivers::keyboard, error, print, sched, vfs};
+use crate::{cpu::gdt, drivers::keyboard, error, info, print, sched, vfs};
 
 #[repr(C, align(16))]
 struct CpuLocal {
@@ -137,7 +137,7 @@ extern "C" fn syscall_handler(
 ) -> u64 {
     match num {
         SYS_EXIT => {
-            crate::info!("task exited with code {}", arg1);
+            info!("task exited with code {}", arg1);
             sched::exit();
             0
         }

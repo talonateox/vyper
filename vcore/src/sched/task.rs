@@ -4,7 +4,7 @@ use core::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use crate::vfs::fd::FdTable;
+use crate::{cpu, vfs::fd::FdTable};
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -47,7 +47,7 @@ extern "C" fn entry_wrapper(entry: fn()) -> ! {
 extern "C" fn user_entry_wrapper(entry: u64, stack: u64) -> ! {
     x86_64::instructions::interrupts::enable();
     unsafe {
-        crate::cpu::syscall::jump_to_usermode(entry, stack);
+        cpu::syscall::jump_to_usermode(entry, stack);
     }
 }
 
