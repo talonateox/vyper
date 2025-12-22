@@ -69,7 +69,7 @@ fn setup_fs() {
     let devfs = vfs::DevFs::new();
 
     if let Ok(ata) = vfs::AtaBlockDevice::new() {
-        devfs.register_device("hda", Box::new(ata));
+        devfs.register_device("ata0", Box::new(ata));
     }
 
     vfs::mount("/dev", Box::new(devfs)).expect("failed to mount devfs");
