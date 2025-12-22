@@ -6,11 +6,13 @@ use alloc::{
 use spin::{Lazy, Mutex};
 
 pub mod fd;
+pub mod memfs;
 pub mod tasksfs;
 pub mod tmpfs;
 pub mod types;
 
 pub use fd::FdKind;
+pub use memfs::MemFs;
 pub use tasksfs::TasksFs;
 pub use tmpfs::TmpFs;
 pub use types::*;
@@ -136,6 +138,19 @@ fn normalize_path(path: &str) -> String {
             result.push_str(part);
         }
         result
+    }
+}
+
+pub fn resolve_path(path: &str, cwd: &str) -> String {
+    if path.starts_with('/') {
+        normalize_path(path)
+    } else {
+        let mut full = String::from(cwd);
+        if !full.ends_with('/') {
+            full.push('/');
+        }
+        full.push_str(path);
+        normalize_path(&full)
     }
 }
 

@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 use core::{
     arch::naked_asm,
     sync::atomic::{AtomicU64, Ordering},
@@ -31,6 +31,7 @@ pub struct Task {
     pub user_entry: u64,
     pub user_stack: u64,
     pub fds: FdTable,
+    pub cwd: String,
     _stack: Vec<u8>,
 }
 
@@ -115,6 +116,7 @@ impl Task {
             user_entry: 0,
             user_stack: 0,
             fds: FdTable::new(),
+            cwd: String::from("/"),
             _stack: stack,
         }
     }
@@ -154,6 +156,7 @@ impl Task {
             user_entry,
             user_stack,
             fds: FdTable::new(),
+            cwd: String::from("/"),
             _stack: stack,
         }
     }
@@ -168,6 +171,7 @@ impl Task {
             user_entry: 0,
             user_stack: 0,
             fds: FdTable::new(),
+            cwd: String::from("/"),
             _stack: Vec::new(),
         }
     }

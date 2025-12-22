@@ -3,11 +3,13 @@ use vlib::{as_str, println};
 use crate::input::parse_args;
 
 mod cat;
+mod cd;
 mod echo;
 mod help;
 mod ls;
 mod mkdir;
 mod ps;
+mod pwd;
 mod rm;
 mod rmdir;
 mod touch;
@@ -35,6 +37,8 @@ pub fn execute(line: &[u8]) {
         b"rm" => rm::run(args),
         b"rmdir" => rmdir::run(args),
         b"write" => write::run(args),
+        b"pwd" => pwd::run(args),
+        b"cd" => cd::run(args),
         b"exit" => {
             println!("byebye o7");
             vlib::syscalls::exit(0);

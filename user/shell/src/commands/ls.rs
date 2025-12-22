@@ -4,7 +4,7 @@ use vlib::{
 };
 
 pub fn run(args: &[&[u8]]) {
-    let path: &[u8] = if args.is_empty() { b"/" } else { args[0] };
+    let path: &[u8] = if args.is_empty() { b"." } else { args[0] };
 
     let fd = open(path, O_RDONLY | O_DIRECTORY);
     if fd < 0 {

@@ -9,6 +9,8 @@ pub const SYS_GETDENTS: u64 = 5;
 pub const SYS_MKDIR: u64 = 6;
 pub const SYS_UNLINK: u64 = 7;
 pub const SYS_RMDIR: u64 = 8;
+pub const SYS_CHDIR: u64 = 9;
+pub const SYS_GETCWD: u64 = 10;
 
 pub const O_RDONLY: u64 = 0;
 pub const O_WRONLY: u64 = 1;
@@ -74,6 +76,20 @@ pub fn mkdir(path: &[u8]) -> i64 {
 pub fn rmdir(path: &[u8]) -> i64 {
     let result = syscall2(SYS_RMDIR, path.as_ptr() as u64, path.len() as u64);
     result as i64
+}
+
+pub fn chdir(path: &[u8]) -> i64 {
+    let result = syscall2(SYS_CHDIR, path.as_ptr() as u64, path.len() as u64);
+    if result == u64::MAX { -1 } else { 0 }
+}
+
+pub fn getcwd(buf: &mut [u8]) -> i64 {
+    let result = syscall2(SYS_GETCWD, buf.as_mut_ptr() as u64, buf.len() as u64);
+    if result == u64::MAX {
+        -1
+    } else {
+        result as i64
+    }
 }
 
 pub fn getdents(fd: u64, buf: &mut [u8]) -> i64 {

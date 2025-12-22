@@ -116,6 +116,8 @@ pub const SYS_GETDENTS: u64 = 5;
 pub const SYS_MKDIR: u64 = 6;
 pub const SYS_UNLINK: u64 = 7;
 pub const SYS_RMDIR: u64 = 8;
+pub const SYS_CHDIR: u64 = 9;
+pub const SYS_GETCWD: u64 = 10;
 
 pub const O_RDONLY: u64 = 0;
 pub const O_WRONLY: u64 = 1;
@@ -130,7 +132,7 @@ extern "C" fn syscall_handler(
     arg1: u64,
     arg2: u64,
     arg3: u64,
-    arg4: u64,
+    _arg4: u64,
     _arg5: u64,
 ) -> u64 {
     match num {
@@ -235,8 +237,11 @@ extern "C" fn syscall_handler(
                 core::str::from_utf8_unchecked(slice)
             };
 
+            let cwd = sched::get_cwd().unwrap_or_else(|| "/".into());
+            let path = vfs::resolve_path(path, &cwd);
+
             if flags & O_DIRECTORY != 0 {
-                match vfs::readdir(path) {
+                match vfs::readdir(&path) {
                     Ok(entries) => {
                         let result = sched::with_fd_table(|table| {
                             table.alloc(vfs::FdKind::Directory {
@@ -258,7 +263,7 @@ extern "C" fn syscall_handler(
                     append: (flags & O_APPEND) != 0,
                 };
 
-                match vfs::open(path, open_flags) {
+                match vfs::open(&path, open_flags) {
                     Ok(handle) => {
                         let result =
                             sched::with_fd_table(|table| table.alloc(vfs::FdKind::File(handle)));
@@ -337,7 +342,10 @@ extern "C" fn syscall_handler(
                 core::str::from_utf8_unchecked(slice)
             };
 
-            match vfs::mkdir(path) {
+            let cwd = sched::get_cwd().unwrap_or_else(|| "/".into());
+            let path = vfs::resolve_path(path, &cwd);
+
+            match vfs::mkdir(&path) {
                 Ok(()) => 0,
                 Err(_) => u64::MAX,
             }
@@ -352,7 +360,10 @@ extern "C" fn syscall_handler(
                 core::str::from_utf8_unchecked(slice)
             };
 
-            match vfs::remove(path) {
+            let cwd = sched::get_cwd().unwrap_or_else(|| "/".into());
+            let path = vfs::resolve_path(path, &cwd);
+
+            match vfs::remove(&path) {
                 Ok(()) => 0,
                 Err(_) => u64::MAX,
             }
@@ -367,9 +378,53 @@ extern "C" fn syscall_handler(
                 core::str::from_utf8_unchecked(slice)
             };
 
-            match vfs::rmdir(path) {
+            let cwd = sched::get_cwd().unwrap_or_else(|| "/".into());
+            let path = vfs::resolve_path(path, &cwd);
+
+            match vfs::rmdir(&path) {
                 Ok(()) => 0,
                 Err(_) => u64::MAX,
+            }
+        }
+
+        SYS_CHDIR => {
+            let path_ptr = arg1 as *const u8;
+            let path_len = arg2 as usize;
+
+            let path = unsafe {
+                let slice = core::slice::from_raw_parts(path_ptr, path_len);
+                core::str::from_utf8_unchecked(slice)
+            };
+
+            let cwd = sched::get_cwd().unwrap_or_else(|| "/".into());
+            let path = vfs::resolve_path(path, &cwd);
+
+            match vfs::metadata(&path) {
+                Ok(meta) if meta.file_type == vfs::FileType::Directory => {
+                    if sched::set_cwd(path).is_ok() {
+                        0
+                    } else {
+                        u64::MAX
+                    }
+                }
+                _ => u64::MAX,
+            }
+        }
+
+        SYS_GETCWD => {
+            let buf_ptr = arg1 as *mut u8;
+            let buf_len = arg2 as usize;
+
+            match sched::get_cwd() {
+                Some(cwd) => {
+                    let bytes = cwd.as_bytes();
+                    let copy_len = bytes.len().min(buf_len);
+                    unsafe {
+                        core::ptr::copy_nonoverlapping(bytes.as_ptr(), buf_ptr, copy_len);
+                    }
+                    copy_len as u64
+                }
+                None => u64::MAX,
             }
         }
 

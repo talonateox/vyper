@@ -61,6 +61,9 @@ fn setup_fs() {
 
     vfs::mkdir("/live/tasks").unwrap();
     vfs::mount("/live/tasks", Box::new(TasksFs::new())).expect("failed to mount tasksfs");
+
+    vfs::mkdir("/live/mem").unwrap();
+    vfs::mount("/live/mem", Box::new(vfs::MemFs::new())).expect("failed to mount memfs");
 }
 
 #[unsafe(no_mangle)]

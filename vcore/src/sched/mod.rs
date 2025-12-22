@@ -1,7 +1,7 @@
 pub mod switch;
 pub mod task;
 
-use alloc::collections::VecDeque;
+use alloc::{collections::VecDeque, string::String};
 use spin::Mutex;
 use switch::switch_context;
 use task::{Task, TaskState};
@@ -231,4 +231,18 @@ where
     let sched = guard.as_mut().ok_or(VfsError::IoError)?;
     let task = sched.current_task().ok_or(VfsError::IoError)?;
     f(&mut task.fds)
+}
+
+pub fn get_cwd() -> Option<String> {
+    let guard = SCHEDULER.lock();
+    let sched = guard.as_ref()?;
+    Some(sched.tasks.get(sched.current)?.cwd.clone())
+}
+
+pub fn set_cwd(path: String) -> Result<(), ()> {
+    let mut guard = SCHEDULER.lock();
+    let sched = guard.as_mut().ok_or(())?;
+    let task = sched.tasks.get_mut(sched.current).ok_or(())?;
+    task.cwd = path;
+    Ok(())
 }

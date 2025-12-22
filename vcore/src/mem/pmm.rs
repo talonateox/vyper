@@ -10,6 +10,7 @@ struct BitmapAllocator {
     bitmap: *mut u8,
     bitmap_size: usize,
     total_pages: usize,
+    usable_pages: usize,
     free_pages: usize,
 }
 
@@ -84,7 +85,7 @@ pub fn init(memmap: &[&Entry], hhdm: VirtAddr) {
         }
     }
 
-    let bitmap_addr = bitmap_addr.expect("No space for PMM bitmap");
+    let bitmap_addr = bitmap_addr.expect("no space for PMM bitmap");
     let bitmap_ptr = (bitmap_addr + hhdm.as_u64()) as *mut u8;
 
     unsafe {
@@ -95,6 +96,7 @@ pub fn init(memmap: &[&Entry], hhdm: VirtAddr) {
         bitmap: bitmap_ptr,
         bitmap_size,
         total_pages,
+        usable_pages: 0,
         free_pages: 0,
     };
 
@@ -120,6 +122,8 @@ pub fn init(memmap: &[&Entry], hhdm: VirtAddr) {
         }
     }
 
+    allocator.usable_pages = allocator.free_pages;
+
     *PMM.lock() = Some(allocator);
 }
 
@@ -135,4 +139,8 @@ pub fn free(addr: u64) {
 
 pub fn free_pages() -> usize {
     PMM.lock().as_ref().map(|p| p.free_pages).unwrap_or(0)
+}
+
+pub fn total_pages() -> usize {
+    PMM.lock().as_ref().map(|p| p.usable_pages).unwrap_or(0)
 }
