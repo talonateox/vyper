@@ -11,6 +11,7 @@ mod ps;
 mod rm;
 mod rmdir;
 mod touch;
+mod write;
 
 pub fn execute(line: &[u8]) {
     let mut argv: [&[u8]; 16] = [&[]; 16];
@@ -33,6 +34,7 @@ pub fn execute(line: &[u8]) {
         b"mkdir" => mkdir::run(args),
         b"rm" => rm::run(args),
         b"rmdir" => rmdir::run(args),
+        b"write" => write::run(args),
         b"exit" => {
             println!("byebye o7");
             vlib::syscalls::exit(0);

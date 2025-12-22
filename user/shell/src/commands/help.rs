@@ -8,7 +8,8 @@ pub fn run(_args: &[&[u8]]) {
     println!("  touch <file>  - create a file");
     println!("  mkdir <dir>   - create a directory");
     println!("  rm <file>     - delete a file");
-    println!("  rmdir <dir    - delete a directory");
+    println!("  rmdir <dir>   - delete a directory");
+    println!("  write <file> <contents> - write contents to a file");
     println!("  cat <file>    - display a files content");
     println!("  ps            - list running tasks in /live/tasks");
     println!("  exit          - say byebye to the shell :c");
