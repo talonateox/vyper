@@ -5,12 +5,14 @@ use alloc::{
 };
 use spin::{Lazy, Mutex};
 
+pub mod blockdev;
 pub mod fd;
 pub mod memfs;
 pub mod tasksfs;
 pub mod tmpfs;
 pub mod types;
 
+pub use blockdev::{BlockDevice, DevFs, ata::AtaBlockDevice};
 pub use fd::FdKind;
 pub use memfs::MemFs;
 pub use tasksfs::TasksFs;

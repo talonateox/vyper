@@ -64,6 +64,15 @@ fn setup_fs() {
 
     vfs::mkdir("/live/mem").unwrap();
     vfs::mount("/live/mem", Box::new(vfs::MemFs::new())).expect("failed to mount memfs");
+
+    vfs::mkdir("/dev").unwrap();
+    let devfs = vfs::DevFs::new();
+
+    if let Ok(ata) = vfs::AtaBlockDevice::new() {
+        devfs.register_device("hda", Box::new(ata));
+    }
+
+    vfs::mount("/dev", Box::new(devfs)).expect("failed to mount devfs");
 }
 
 #[unsafe(no_mangle)]
@@ -103,6 +112,11 @@ unsafe extern "C" fn kmain() -> ! {
 
     cpu::apic::init();
     info!("APIC loaded");
+
+    match drivers::ata::init() {
+        Ok(()) => info!("ATA drive detected"),
+        Err(e) => warn!("ATA init failed: {}", e),
+    }
 
     setup_fs();
 
