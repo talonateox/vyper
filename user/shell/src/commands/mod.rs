@@ -6,7 +6,11 @@ mod cat;
 mod echo;
 mod help;
 mod ls;
+mod mkdir;
 mod ps;
+mod rm;
+mod rmdir;
+mod touch;
 
 pub fn execute(line: &[u8]) {
     let mut argv: [&[u8]; 16] = [&[]; 16];
@@ -25,6 +29,10 @@ pub fn execute(line: &[u8]) {
         b"ls" => ls::run(args),
         b"cat" => cat::run(args),
         b"ps" => ps::run(args),
+        b"touch" => touch::run(args),
+        b"mkdir" => mkdir::run(args),
+        b"rm" => rm::run(args),
+        b"rmdir" => rmdir::run(args),
         b"exit" => {
             println!("byebye o7");
             vlib::syscalls::exit(0);

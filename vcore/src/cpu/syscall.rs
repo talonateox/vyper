@@ -113,6 +113,9 @@ pub const SYS_READ: u64 = 2;
 pub const SYS_OPEN: u64 = 3;
 pub const SYS_CLOSE: u64 = 4;
 pub const SYS_GETDENTS: u64 = 5;
+pub const SYS_MKDIR: u64 = 6;
+pub const SYS_UNLINK: u64 = 7;
+pub const SYS_RMDIR: u64 = 8;
 
 pub const O_RDONLY: u64 = 0;
 pub const O_WRONLY: u64 = 1;
@@ -323,6 +326,51 @@ extern "C" fn syscall_handler(
             });
 
             result.unwrap_or(0) as u64
+        }
+
+        SYS_MKDIR => {
+            let path_ptr = arg1 as *const u8;
+            let path_len = arg2 as usize;
+
+            let path = unsafe {
+                let slice = core::slice::from_raw_parts(path_ptr, path_len);
+                core::str::from_utf8_unchecked(slice)
+            };
+
+            match vfs::mkdir(path) {
+                Ok(()) => 0,
+                Err(_) => u64::MAX,
+            }
+        }
+
+        SYS_UNLINK => {
+            let path_ptr = arg1 as *const u8;
+            let path_len = arg2 as usize;
+
+            let path = unsafe {
+                let slice = core::slice::from_raw_parts(path_ptr, path_len);
+                core::str::from_utf8_unchecked(slice)
+            };
+
+            match vfs::remove(path) {
+                Ok(()) => 0,
+                Err(_) => u64::MAX,
+            }
+        }
+
+        SYS_RMDIR => {
+            let path_ptr = arg1 as *const u8;
+            let path_len = arg2 as usize;
+
+            let path = unsafe {
+                let slice = core::slice::from_raw_parts(path_ptr, path_len);
+                core::str::from_utf8_unchecked(slice)
+            };
+
+            match vfs::rmdir(path) {
+                Ok(()) => 0,
+                Err(_) => u64::MAX,
+            }
         }
 
         _ => {

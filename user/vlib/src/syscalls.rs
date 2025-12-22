@@ -6,6 +6,9 @@ pub const SYS_READ: u64 = 2;
 pub const SYS_OPEN: u64 = 3;
 pub const SYS_CLOSE: u64 = 4;
 pub const SYS_GETDENTS: u64 = 5;
+pub const SYS_MKDIR: u64 = 6;
+pub const SYS_UNLINK: u64 = 7;
+pub const SYS_RMDIR: u64 = 8;
 
 pub const O_RDONLY: u64 = 0;
 pub const O_WRONLY: u64 = 1;
@@ -46,6 +49,31 @@ pub fn open(path: &[u8], flags: u64) -> i64 {
 pub fn close(fd: u64) -> i64 {
     let result = syscall1(SYS_CLOSE, fd);
     if result == u64::MAX { -1 } else { 0 }
+}
+
+pub fn touch(path: &[u8]) -> i64 {
+    let fd = open(path, O_CREAT);
+    if fd >= 0 {
+        close(fd as u64);
+        0
+    } else {
+        -1
+    }
+}
+
+pub fn unlink(path: &[u8]) -> i64 {
+    let result = syscall2(SYS_UNLINK, path.as_ptr() as u64, path.len() as u64);
+    result as i64
+}
+
+pub fn mkdir(path: &[u8]) -> i64 {
+    let result = syscall2(SYS_MKDIR, path.as_ptr() as u64, path.len() as u64);
+    result as i64
+}
+
+pub fn rmdir(path: &[u8]) -> i64 {
+    let result = syscall2(SYS_RMDIR, path.as_ptr() as u64, path.len() as u64);
+    result as i64
 }
 
 pub fn getdents(fd: u64, buf: &mut [u8]) -> i64 {
