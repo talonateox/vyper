@@ -35,7 +35,7 @@ run-hdd-x86_64: ovmf/ovmf-code-$(KARCH).fd ovmf/ovmf-vars-$(KARCH).fd $(IMAGE_NA
 		-M pc \
 		-drive if=pflash,unit=0,format=raw,file=ovmf/ovmf-code-$(KARCH).fd,readonly=on \
 		-drive if=pflash,unit=1,format=raw,file=ovmf/ovmf-vars-$(KARCH).fd \
-		-hda $(IMAGE_NAME).hdd \
+		-drive file=$(IMAGE_NAME).hdd,format=raw,if=ide \
 		$(QEMUFLAGS)
 
 .PHONY: run-bios
@@ -50,7 +50,7 @@ run-bios: $(IMAGE_NAME).iso
 run-hdd-bios: $(IMAGE_NAME).hdd
 	qemu-system-$(KARCH) \
 		-M q35 \
-		-hda $(IMAGE_NAME).hdd \
+		-drive file=$(IMAGE_NAME).hdd,format=raw,if=ide \
 		$(QEMUFLAGS)
 
 ovmf/ovmf-code-$(KARCH).fd:
@@ -104,16 +104,19 @@ $(IMAGE_NAME).iso: limine/limine user kernel
 
 $(IMAGE_NAME).hdd: limine/limine user kernel
 	rm -f $(IMAGE_NAME).hdd
-	dd if=/dev/zero bs=1M count=0 seek=64 of=$(IMAGE_NAME).hdd
+	dd if=/dev/zero bs=1M count=0 seek=256 of=$(IMAGE_NAME).hdd
 	sgdisk $(IMAGE_NAME).hdd -n 1:2048 -t 1:ef00
 	./limine/limine bios-install $(IMAGE_NAME).hdd
-	mformat -i $(IMAGE_NAME).hdd@@1M
+	mformat -i $(IMAGE_NAME).hdd@@1M -F
 	mmd -i $(IMAGE_NAME).hdd@@1M ::/EFI ::/EFI/BOOT ::/boot ::/boot/limine
+	mmd -i $(IMAGE_NAME).hdd@@1M ::/system ::/system/cmd ::/system/lib
+	mmd -i $(IMAGE_NAME).hdd@@1M ::/home ::/tmp
 	mcopy -i $(IMAGE_NAME).hdd@@1M target/x86_64-unknown-none/release/vcore ::/boot/krnl
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine.conf ::/boot/limine
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/limine-bios.sys ::/boot/limine
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/BOOTX64.EFI ::/EFI/BOOT
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/BOOTIA32.EFI ::/EFI/BOOT
+	mcopy -i $(IMAGE_NAME).hdd@@1M target/x86_64-unknown-none/release/shell ::/system/cmd/shell
 
 .PHONY: clean
 clean:

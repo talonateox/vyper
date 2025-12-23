@@ -28,5 +28,7 @@ pub fn run(args: &[&[u8]]) {
         print!("{}", as_str!(&buf[..bytes_read as usize]));
     }
 
+    println!();
+
     close(fd);
 }

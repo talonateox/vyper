@@ -142,8 +142,16 @@ impl Filesystem for TmpFs {
                 }
 
                 let data = node.as_file().unwrap().clone();
-                let data = if flags.truncate { Vec::new() } else { data };
-                let position = if flags.append { data.len() } else { 0 };
+                let data = if flags.contains(OpenFlags::O_TRUNC) {
+                    Vec::new()
+                } else {
+                    data
+                };
+                let position = if flags.contains(OpenFlags::O_APPEND) {
+                    data.len()
+                } else {
+                    0
+                };
 
                 Ok(Box::new(TmpFileHandle {
                     data,
@@ -153,7 +161,7 @@ impl Filesystem for TmpFs {
                     fs: self as *const TmpFs,
                 }))
             }
-            Err(VfsError::NotFound) if flags.create => {
+            Err(VfsError::NotFound) if flags.contains(OpenFlags::O_CREAT) => {
                 let (parent, name) = Self::navigate_to_parent(&mut root, &parts)?;
                 let dir = parent.as_dir_mut().ok_or(VfsError::NotADirectory)?;
                 dir.insert(name.to_string(), Node::File(Vec::new()));
@@ -283,7 +291,7 @@ unsafe impl Sync for TmpFileHandle {}
 
 impl FileHandle for TmpFileHandle {
     fn read(&mut self, buf: &mut [u8]) -> VfsResult<usize> {
-        if !self.flags.read {
+        if !self.flags.is_readable() {
             return Err(VfsError::PermissionDenied);
         }
 
@@ -297,11 +305,11 @@ impl FileHandle for TmpFileHandle {
     }
 
     fn write(&mut self, buf: &[u8]) -> VfsResult<usize> {
-        if !self.flags.write {
+        if !self.flags.is_writable() {
             return Err(VfsError::PermissionDenied);
         }
 
-        if self.flags.append {
+        if self.flags.contains(OpenFlags::O_APPEND) {
             self.position = self.data.len();
         }
 

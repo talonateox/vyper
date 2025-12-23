@@ -5,18 +5,30 @@ use alloc::{
 };
 use spin::{Lazy, Mutex};
 
-pub mod blockdev;
+pub mod block;
+pub mod fat32;
 pub mod fd;
 pub mod memfs;
 pub mod tasksfs;
 pub mod tmpfs;
 pub mod types;
 
-pub use blockdev::{BlockDevice, DevFs, ata::AtaBlockDevice};
-pub use fd::FdKind;
+#[allow(unused_imports)]
+pub use block::{
+    AtaDisk, BlockDevice, DevFs, Partition, PartitionInfo, PartitionType, SECTOR_SIZE,
+    find_partition, first_partition, parse_partitions,
+};
+#[allow(unused_imports)]
+pub use fat32::Fat32Fs;
+#[allow(unused_imports)]
+pub use fd::{FdKind, FdTable};
+#[allow(unused_imports)]
 pub use memfs::MemFs;
+#[allow(unused_imports)]
 pub use tasksfs::TasksFs;
+#[allow(unused_imports)]
 pub use tmpfs::TmpFs;
+#[allow(unused_imports)]
 pub use types::*;
 
 struct Mount {
@@ -41,6 +53,7 @@ impl Vfs {
         }
 
         self.mounts.push(Mount { path, fs });
+
         self.mounts.sort_by(|a, b| b.path.len().cmp(&a.path.len()));
 
         Ok(())

@@ -25,7 +25,8 @@ use limine::request::{
 use x86_64::VirtAddr;
 
 use crate::fb::{Framebuffer, terminal};
-use crate::vfs::TasksFs;
+use crate::vfs::block::AtaDisk;
+use crate::vfs::{DevFs, Fat32Fs, Partition, TasksFs, first_partition};
 
 #[used]
 #[unsafe(link_section = ".requests")]
@@ -52,23 +53,35 @@ static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 
 static INIT_ELF: &[u8] = include_bytes!("../../target/x86_64-unknown-none/release/shell");
 
+fn mount_fat32() -> Result<(), &'static str> {
+    let disk = AtaDisk::new()?;
+    let part_info = first_partition(&disk)?.ok_or("no partitions found")?;
+    let partition = Partition::new(disk, part_info.start_lba, part_info.sector_count);
+    let fat = Fat32Fs::new(partition)?;
+
+    vfs::mount("/", Box::new(fat)).expect("failed to mount root");
+    info!("mounted root at /");
+
+    Ok(())
+}
+
 fn setup_fs() {
-    vfs::mount("/", Box::new(vfs::TmpFs::new())).expect("failed to mount root");
-    vfs::mkdir("/system").unwrap();
-    vfs::mkdir("/system/cmd").unwrap();
-    vfs::mkdir("/system/lib").unwrap();
-    vfs::mkdir("/live").unwrap();
+    if let Err(e) = mount_fat32() {
+        error!("failed to mount fat32, falling back to tmpfs, {}", e);
+        vfs::mount("/", Box::new(vfs::TmpFs::new())).expect("failed to mount root");
+    }
 
-    vfs::mkdir("/live/tasks").unwrap();
+    let _ = vfs::mkdir("/live");
+    let _ = vfs::mkdir("/live/tasks");
+    let _ = vfs::mkdir("/live/mem");
+    let _ = vfs::mkdir("/dev");
+
     vfs::mount("/live/tasks", Box::new(TasksFs::new())).expect("failed to mount tasksfs");
-
-    vfs::mkdir("/live/mem").unwrap();
     vfs::mount("/live/mem", Box::new(vfs::MemFs::new())).expect("failed to mount memfs");
 
-    vfs::mkdir("/dev").unwrap();
-    let devfs = vfs::DevFs::new();
+    let devfs = DevFs::new();
 
-    if let Ok(ata) = vfs::AtaBlockDevice::new() {
+    if let Ok(ata) = AtaDisk::new() {
         devfs.register_device("ata0", Box::new(ata));
     }
 

@@ -119,14 +119,6 @@ pub const SYS_RMDIR: u64 = 8;
 pub const SYS_CHDIR: u64 = 9;
 pub const SYS_GETCWD: u64 = 10;
 
-pub const O_RDONLY: u64 = 0;
-pub const O_WRONLY: u64 = 1;
-pub const O_RDWR: u64 = 2;
-pub const O_CREAT: u64 = 64;
-pub const O_TRUNC: u64 = 512;
-pub const O_APPEND: u64 = 1024;
-pub const O_DIRECTORY: u64 = 65536;
-
 extern "C" fn syscall_handler(
     num: u64,
     arg1: u64,
@@ -230,7 +222,7 @@ extern "C" fn syscall_handler(
         SYS_OPEN => {
             let path_ptr = arg1 as *const u8;
             let path_len = arg2 as usize;
-            let flags = arg3;
+            let flags = arg3 as u32;
 
             let path = unsafe {
                 let slice = core::slice::from_raw_parts(path_ptr, path_len);
@@ -240,7 +232,9 @@ extern "C" fn syscall_handler(
             let cwd = sched::get_cwd().unwrap_or_else(|| "/".into());
             let path = vfs::resolve_path(path, &cwd);
 
-            if flags & O_DIRECTORY != 0 {
+            let open_flags = vfs::OpenFlags::from_bits(flags);
+
+            if open_flags.contains(vfs::OpenFlags::O_DIRECTORY) {
                 match vfs::readdir(&path) {
                     Ok(entries) => {
                         let result = sched::with_fd_table(|table| {
@@ -255,14 +249,6 @@ extern "C" fn syscall_handler(
                     Err(_) => u64::MAX,
                 }
             } else {
-                let open_flags = vfs::OpenFlags {
-                    read: (flags & 3) != O_WRONLY,
-                    write: (flags & 3) != O_RDONLY,
-                    create: (flags & O_CREAT) != 0,
-                    truncate: (flags & O_TRUNC) != 0,
-                    append: (flags & O_APPEND) != 0,
-                };
-
                 match vfs::open(&path, open_flags) {
                     Ok(handle) => {
                         let result =
