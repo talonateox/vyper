@@ -6,7 +6,7 @@ use core::{
 
 use crate::{cpu, vfs::fd::FdTable};
 
-static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+pub static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TaskState {
@@ -24,12 +24,14 @@ pub enum TaskMode {
 
 pub struct Task {
     pub id: u64,
+    pub parent_id: Option<u64>,
     pub state: TaskState,
     pub mode: TaskMode,
     pub stack_ptr: u64,
     pub wake_at: Option<u64>,
     pub user_entry: u64,
     pub user_stack: u64,
+    pub page_table: Option<u64>,
     pub fds: FdTable,
     pub cwd: String,
     _stack: Vec<u8>,
@@ -109,12 +111,14 @@ impl Task {
 
         Self {
             id,
+            parent_id: None,
             state: TaskState::Ready,
             mode: TaskMode::Kernel,
             stack_ptr: sp,
             wake_at: None,
             user_entry: 0,
             user_stack: 0,
+            page_table: None,
             fds: FdTable::new(),
             cwd: String::from("/"),
             _stack: stack,
@@ -149,12 +153,14 @@ impl Task {
 
         Self {
             id,
+            parent_id: None,
             state: TaskState::Ready,
             mode: TaskMode::User,
             stack_ptr: sp,
             wake_at: None,
             user_entry,
             user_stack,
+            page_table: None,
             fds: FdTable::new(),
             cwd: String::from("/"),
             _stack: stack,
@@ -164,12 +170,14 @@ impl Task {
     pub fn kernel_task() -> Self {
         Self {
             id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            parent_id: None,
             state: TaskState::Running,
             mode: TaskMode::Kernel,
             stack_ptr: 0,
             wake_at: None,
             user_entry: 0,
             user_stack: 0,
+            page_table: None,
             fds: FdTable::new(),
             cwd: String::from("/"),
             _stack: Vec::new(),

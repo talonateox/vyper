@@ -5,7 +5,7 @@ use alloc::{collections::VecDeque, string::String};
 use spin::Mutex;
 use switch::switch_context;
 use task::{Task, TaskState};
-use x86_64::{VirtAddr, structures::paging::PageTableFlags};
+use x86_64::{VirtAddr, registers::control::Cr3, structures::paging::PageTableFlags};
 
 use crate::{
     cpu, elf, info,
@@ -54,6 +54,12 @@ impl Scheduler {
         self.tasks[current].state = TaskState::Ready;
         self.tasks[next].state = TaskState::Running;
 
+        if let Some(next_pml4) = self.tasks[next].page_table {
+            unsafe {
+                vmm::switch_page_table(next_pml4);
+            }
+        }
+
         let old_sp = &mut self.tasks[current].stack_ptr as *mut u64;
         let new_sp = self.tasks[next].stack_ptr;
 
@@ -65,6 +71,12 @@ impl Scheduler {
         while i > 0 {
             i -= 1;
             if i != self.current && self.tasks[i].state == TaskState::Dead {
+                if let Some(pml4) = self.tasks[i].page_table {
+                    unsafe {
+                        vmm::free_page_table(pml4);
+                    }
+                }
+
                 self.tasks.remove(i);
                 if i < self.current {
                     self.current -= 1;
@@ -124,6 +136,15 @@ pub fn spawn_user(code: &[u8], code_addr: u64) -> Result<u64, &'static str> {
 }
 
 pub fn spawn_elf(elf_data: &[u8]) -> Result<u64, &'static str> {
+    let pml4_phys = vmm::create_user_page_table()?;
+
+    let (old_cr3, _) = Cr3::read();
+    let old_cr3_phys = old_cr3.start_address().as_u64();
+
+    unsafe {
+        vmm::switch_page_table(pml4_phys);
+    }
+
     let loaded = elf::load(elf_data)?;
 
     let flags =
@@ -137,7 +158,13 @@ pub fn spawn_elf(elf_data: &[u8]) -> Result<u64, &'static str> {
 
     let user_stack_top = user_stack_base + 4096 - 8;
 
-    let task = Task::new_user(loaded.entry, user_stack_top);
+    unsafe {
+        vmm::switch_page_table(old_cr3_phys);
+    }
+
+    let mut task = Task::new_user(loaded.entry, user_stack_top);
+    task.page_table = Some(pml4_phys);
+
     let id = task.id;
     info!("spawned task with PID: {}", id);
 
@@ -176,9 +203,11 @@ pub fn schedule() {
                     }
                     sched.tasks[next].state = TaskState::Running;
 
+                    let next_pml4 = sched.tasks[next].page_table;
+
                     let old_sp = &mut sched.tasks[current].stack_ptr as *mut u64;
                     let new_sp = sched.tasks[next].stack_ptr;
-                    Some((old_sp, new_sp))
+                    Some((old_sp, new_sp, next_pml4))
                 } else {
                     None
                 }
@@ -187,7 +216,12 @@ pub fn schedule() {
             }
         };
 
-        if let Some((old_sp, new_sp)) = switch_info {
+        if let Some((old_sp, new_sp, next_pml4)) = switch_info {
+            if let Some(pml4) = next_pml4 {
+                unsafe {
+                    vmm::switch_page_table(pml4);
+                }
+            }
             unsafe { switch_context(old_sp, new_sp) };
         }
     });
