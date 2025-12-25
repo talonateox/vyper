@@ -5,18 +5,27 @@ use x86_64::structures::tss::TaskStateSegment;
 
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
 
-static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
-    let mut tss = TaskStateSegment::new();
-    tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = {
+static mut TSS_STORAGE: TaskStateSegment = TaskStateSegment::new();
+
+static INIT_TSS: Lazy<()> = Lazy::new(|| unsafe {
+    TSS_STORAGE.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = {
         const STACK_SIZE: usize = 4096 * 5;
         static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
         let stack_start = VirtAddr::from_ptr(&raw const STACK);
         stack_start + STACK_SIZE as u64
     };
-    tss
+
+    TSS_STORAGE.privilege_stack_table[0] = {
+        const STACK_SIZE: usize = 4096 * 5;
+        static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
+        let stack_start = VirtAddr::from_ptr(&raw const STACK);
+        stack_start + STACK_SIZE as u64
+    };
 });
 
 static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(|| {
+    Lazy::force(&INIT_TSS);
+
     let mut gdt = GlobalDescriptorTable::new();
 
     let kernel_code = gdt.append(Descriptor::kernel_code_segment());
@@ -25,7 +34,7 @@ static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(|| {
     let user_data = gdt.append(Descriptor::user_data_segment());
     let user_code = gdt.append(Descriptor::user_code_segment());
 
-    let tss = gdt.append(Descriptor::tss_segment(&TSS));
+    let tss = gdt.append(Descriptor::tss_segment(unsafe { &TSS_STORAGE }));
     (
         gdt,
         Selectors {
@@ -61,4 +70,10 @@ pub fn init() {
 
 pub fn selectors() -> &'static Selectors {
     &GDT.1
+}
+
+pub fn set_kernel_stack(stack_top: VirtAddr) {
+    unsafe {
+        TSS_STORAGE.privilege_stack_table[0] = stack_top;
+    }
 }

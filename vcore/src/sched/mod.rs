@@ -8,8 +8,9 @@ use task::{Task, TaskState};
 use x86_64::{VirtAddr, structures::paging::PageTableFlags};
 
 use crate::{
-    cpu, elf, info,
-    mem::vmm,
+    cpu::{self, gdt},
+    elf, info,
+    mem::vmm::AddressSpace,
     vfs::{VfsError, VfsResult, fd::FdTable},
 };
 
@@ -43,23 +44,6 @@ impl Scheduler {
         None
     }
 
-    pub unsafe fn switch_to(&mut self, next: usize) {
-        if next == self.current {
-            return;
-        }
-
-        let current = self.current;
-        self.current = next;
-
-        self.tasks[current].state = TaskState::Ready;
-        self.tasks[next].state = TaskState::Running;
-
-        let old_sp = &mut self.tasks[current].stack_ptr as *mut u64;
-        let new_sp = self.tasks[next].stack_ptr;
-
-        unsafe { switch_context(old_sp, new_sp) };
-    }
-
     pub fn reap_dead(&mut self) {
         let mut i = self.tasks.len();
         while i > 0 {
@@ -91,54 +75,31 @@ pub fn spawn(entry: fn()) {
     }
 }
 
-pub fn spawn_user(code: &[u8], code_addr: u64) -> Result<u64, &'static str> {
-    let flags =
-        PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
-
-    let code_pages = (code.len() + 4095) / 4096;
-    for i in 0..code_pages {
-        let addr = VirtAddr::new(code_addr + (i * 4096) as u64);
-        vmm::map_page_alloc(addr, flags)?;
-    }
-
-    unsafe {
-        core::ptr::copy_nonoverlapping(code.as_ptr(), code_addr as *mut u8, code.len());
-    }
-
-    let user_stack_base: u64 = 0x7FFF_FFFF_0000;
-    for i in 0..4 {
-        let addr = VirtAddr::new(user_stack_base - (i * 4096));
-        vmm::map_page_alloc(VirtAddr::new(addr.as_u64()), flags)?;
-    }
-
-    let user_stack_top = user_stack_base + 4096 - 8;
-
-    let task = Task::new_user(code_addr, user_stack_top);
-    let id = task.id;
-
-    if let Some(sched) = SCHEDULER.lock().as_mut() {
-        sched.add_task(task);
-    }
-
-    Ok(id)
-}
-
 pub fn spawn_elf(elf_data: &[u8]) -> Result<u64, &'static str> {
-    let loaded = elf::load(elf_data)?;
+    let address_space = AddressSpace::new()?;
 
-    let flags =
-        PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
+    let loaded = elf::load_into(elf_data, &address_space)?;
+    if !address_space.is_mapped(VirtAddr::new(loaded.entry & !0xFFF)) {
+        return Err("entry point not mapped!");
+    }
+    let flags = PageTableFlags::PRESENT
+        | PageTableFlags::WRITABLE
+        | PageTableFlags::USER_ACCESSIBLE
+        | PageTableFlags::NO_EXECUTE;
 
-    let user_stack_base: u64 = 0x7FFF_FFFF_0000;
-    for i in 0..4 {
-        let addr = VirtAddr::new(user_stack_base - (i * 4096));
-        vmm::map_page_alloc(addr, flags)?;
+    let user_stack_top_page: u64 = 0x7FFFF_F000;
+    let user_stack_pages = 4;
+
+    for i in 0..user_stack_pages {
+        let page_addr = user_stack_top_page - (i * 4096);
+        address_space.map_page_alloc(VirtAddr::new(page_addr), flags)?;
     }
 
-    let user_stack_top = user_stack_base + 4096 - 8;
+    let user_stack_top = user_stack_top_page + 4096 - 8;
 
-    let task = Task::new_user(loaded.entry, user_stack_top);
+    let task = Task::new_user(address_space, loaded.entry, user_stack_top);
     let id = task.id;
+
     info!("spawned task with PID: {}", id);
 
     if let Some(sched) = SCHEDULER.lock().as_mut() {
@@ -178,7 +139,14 @@ pub fn schedule() {
 
                     let old_sp = &mut sched.tasks[current].stack_ptr as *mut u64;
                     let new_sp = sched.tasks[next].stack_ptr;
-                    Some((old_sp, new_sp))
+
+                    let old_cr3 = sched.tasks[current].cr3;
+                    let new_cr3 = sched.tasks[next].cr3;
+                    let cr3_to_load = if old_cr3 != new_cr3 { new_cr3 } else { 0 };
+
+                    let kernel_stack = sched.tasks[next].kernel_stack_top;
+
+                    Some((old_sp, new_sp, cr3_to_load, kernel_stack))
                 } else {
                     None
                 }
@@ -187,8 +155,11 @@ pub fn schedule() {
             }
         };
 
-        if let Some((old_sp, new_sp)) = switch_info {
-            unsafe { switch_context(old_sp, new_sp) };
+        if let Some((old_sp, new_sp, new_cr3, kernel_stack)) = switch_info {
+            if kernel_stack != 0 {
+                gdt::set_kernel_stack(x86_64::VirtAddr::new(kernel_stack));
+            }
+            unsafe { switch_context(old_sp, new_sp, new_cr3) };
         }
     });
 }

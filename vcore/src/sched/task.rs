@@ -1,10 +1,7 @@
 use alloc::{string::String, vec::Vec};
-use core::{
-    arch::naked_asm,
-    sync::atomic::{AtomicU64, Ordering},
-};
+use core::sync::atomic::{AtomicU64, Ordering};
 
-use crate::{cpu, vfs::fd::FdTable};
+use crate::{cpu, mem::vmm::AddressSpace, vfs::fd::FdTable};
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -27,11 +24,14 @@ pub struct Task {
     pub state: TaskState,
     pub mode: TaskMode,
     pub stack_ptr: u64,
+    pub cr3: u64,
+    pub kernel_stack_top: u64,
     pub wake_at: Option<u64>,
     pub user_entry: u64,
     pub user_stack: u64,
     pub fds: FdTable,
     pub cwd: String,
+    pub address_space: Option<AddressSpace>,
     _stack: Vec<u8>,
 }
 
@@ -53,7 +53,7 @@ extern "C" fn user_entry_wrapper(entry: u64, stack: u64) -> ! {
 
 #[unsafe(naked)]
 unsafe extern "C" fn entry_trampoline() -> ! {
-    naked_asm!(
+    core::arch::naked_asm!(
         "mov rdi, r15",
         "call {wrapper}",
         "ud2",
@@ -107,21 +107,26 @@ impl Task {
             (sp as *mut u64).write(entry as u64);
         }
 
+        let (pml4_frame, _) = x86_64::registers::control::Cr3::read();
+
         Self {
             id,
             state: TaskState::Ready,
             mode: TaskMode::Kernel,
             stack_ptr: sp,
+            cr3: pml4_frame.start_address().as_u64(),
+            kernel_stack_top: stack_top,
             wake_at: None,
             user_entry: 0,
             user_stack: 0,
             fds: FdTable::new(),
             cwd: String::from("/"),
+            address_space: None,
             _stack: stack,
         }
     }
 
-    pub fn new_user(user_entry: u64, user_stack: u64) -> Self {
+    pub fn new_user(address_space: AddressSpace, user_entry: u64, user_stack: u64) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         let stack = alloc::vec![0u8; Self::STACK_SIZE];
 
@@ -147,31 +152,41 @@ impl Task {
             (sp as *mut u64).write(user_entry);
         }
 
+        let cr3 = address_space.cr3_value();
+
         Self {
             id,
             state: TaskState::Ready,
             mode: TaskMode::User,
             stack_ptr: sp,
+            cr3,
+            kernel_stack_top: stack_top,
             wake_at: None,
             user_entry,
             user_stack,
             fds: FdTable::new(),
             cwd: String::from("/"),
+            address_space: Some(address_space),
             _stack: stack,
         }
     }
 
     pub fn kernel_task() -> Self {
+        let (pml4_frame, _) = x86_64::registers::control::Cr3::read();
+
         Self {
             id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
             state: TaskState::Running,
             mode: TaskMode::Kernel,
             stack_ptr: 0,
+            cr3: pml4_frame.start_address().as_u64(),
+            kernel_stack_top: 0,
             wake_at: None,
             user_entry: 0,
             user_stack: 0,
             fds: FdTable::new(),
             cwd: String::from("/"),
+            address_space: None,
             _stack: Vec::new(),
         }
     }

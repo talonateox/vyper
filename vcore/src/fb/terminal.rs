@@ -16,24 +16,31 @@ pub struct Terminal {
     bg: u32,
     scale: usize,
     font: &'static Font,
+    line_spacing: usize,
+    char_width: usize,
 }
 
 impl Terminal {
     pub fn new(fb: Framebuffer, font: &'static Font) -> Self {
         let scale = 2;
+        let char_width = font.glyph_width * scale - 2;
+        let line_spacing = 4;
+        let line_height = font.glyph_height * scale + line_spacing;
         let max_x = fb.width / (font.glyph_width * scale);
-        let max_y = fb.height / (font.glyph_height * scale);
+        let max_y = fb.height / line_height;
 
         Self {
             fb,
             x: 0,
-            y: 1,
+            y: 0,
             max_x,
             max_y,
             fg: 0xffffff,
             bg: 0x000000,
             scale,
             font,
+            line_spacing,
+            char_width,
         }
     }
 
@@ -45,8 +52,12 @@ impl Terminal {
         self.bg = color;
     }
 
+    fn line_height(&self) -> usize {
+        self.font.glyph_height * self.scale + self.line_spacing
+    }
+
     fn scroll(&mut self) {
-        let line_height = self.font.glyph_height * self.scale;
+        let line_height = self.line_height();
         let scroll_bytes = line_height * self.fb.pitch;
         let total_bytes = self.fb.height * self.fb.pitch;
 
@@ -75,6 +86,7 @@ impl Terminal {
     }
 
     pub fn put_char(&mut self, c: char) {
+        let line_height = self.line_height();
         match c {
             '\n' => self.newline(),
             '\r' => self.x = 0,
@@ -89,8 +101,8 @@ impl Terminal {
                     self.font.draw_char(
                         &mut self.fb,
                         ' ',
-                        self.x * self.font.glyph_width * self.scale,
-                        self.y * self.font.glyph_height * self.scale,
+                        self.x * self.char_width,
+                        self.y * line_height,
                         self.fg,
                         self.bg,
                         self.scale,
@@ -104,8 +116,8 @@ impl Terminal {
                 self.font.draw_char(
                     &mut self.fb,
                     c,
-                    self.x * self.font.glyph_width * self.scale,
-                    self.y * self.font.glyph_height * self.scale,
+                    self.x * self.char_width,
+                    self.y * line_height,
                     self.fg,
                     self.bg,
                     self.scale,
@@ -115,7 +127,6 @@ impl Terminal {
             _ => {}
         }
     }
-
     pub fn clear(&mut self) {
         let pixel_count = self.fb.width * self.fb.height;
         let ptr = self.fb.address as *mut u32;

@@ -62,7 +62,7 @@ extern "x86-interrupt" fn page_fault_handler(
 ) -> () {
     use x86_64::registers::control::Cr2;
     println!("PAGE FAULT");
-    println!("  TRIED TO READ 0x{:016x}", Cr2::read().unwrap().as_u64());
+    println!("  TRIED TO ACCESS 0x{:016x}", Cr2::read().unwrap().as_u64());
     println!("  ERR: {:?}", error_code);
     print_stack_frame(stack_frame);
     panic!();

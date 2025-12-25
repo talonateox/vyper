@@ -422,11 +422,13 @@ extern "C" fn syscall_handler(
 }
 
 pub unsafe fn jump_to_usermode(entry: u64, user_stack: u64) -> ! {
+    crate::info!("jump_to_usermode: entry={:x} stack={:x}", entry, user_stack);
+
     let selectors = gdt::selectors();
 
     let user_cs = selectors.user_code.0 as u64;
     let user_ss = selectors.user_data.0 as u64;
-
+    crate::info!("iretq: cs={:x} ss={:x}", user_cs, user_ss);
     unsafe {
         asm!(
             "push {user_ss}",
