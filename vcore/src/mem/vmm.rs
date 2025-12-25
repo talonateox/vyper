@@ -50,7 +50,7 @@ pub fn map_page(virt: VirtAddr, phys: PhysAddr, flags: PageTableFlags) -> Result
 
         mapper
             .map_to(page, frame, flags, &mut allocator)
-            .map_err(|_| "failed to map page")?
+            .unwrap()
             .flush()
     }
 

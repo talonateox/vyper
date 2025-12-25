@@ -52,6 +52,7 @@ static _START_MARKER: RequestsStartMarker = RequestsStartMarker::new();
 static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 
 static INIT_ELF: &[u8] = include_bytes!("../../target/x86_64-unknown-none/release/shell");
+static HELLO_ELF: &[u8] = include_bytes!("../../target/x86_64-unknown-none/release/hello_world");
 
 fn mount_fat32() -> Result<(), &'static str> {
     let disk = AtaDisk::new()?;
@@ -136,6 +137,7 @@ unsafe extern "C" fn kmain() -> ! {
     sched::init();
 
     sched::spawn_elf(INIT_ELF).expect("failed to spawn init");
+    sched::spawn_elf(HELLO_ELF).expect("failed to spawn init");
 
     x86_64::instructions::interrupts::enable();
 

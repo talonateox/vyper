@@ -1,6 +1,10 @@
 use x86_64::{PhysAddr, VirtAddr, instructions::port::Port, structures::paging::PageTableFlags};
 
-const LAPIC_BASE: u64 = 0xFEE0_0000;
+const LAPIC_VIRT: u64 = 0xFFFF_FFFF_FEE0_0000;
+const LAPIC_PHYS: u64 = 0xFEE0_0000;
+
+const IOAPIC_VIRT: u64 = 0xFFFF_FFFF_FEC0_0000;
+const IOAPIC_PHYS: u64 = 0xFEC0_0000;
 
 pub const LAPIC_ID: u64 = 0x020;
 pub const LAPIC_EOI: u64 = 0x0B0;
@@ -10,7 +14,6 @@ pub const LAPIC_TIMER_INIT: u64 = 0x380;
 pub const LAPIC_TIMER_CURRENT: u64 = 0x390;
 pub const LAPIC_TIMER_DIV: u64 = 0x3E0;
 
-const IOAPIC_BASE: u64 = 0xFEC0_0000;
 const IOAPIC_REG_SELECT: u64 = 0x00;
 const IOAPIC_REG_DATA: u64 = 0x10;
 
@@ -52,25 +55,25 @@ pub fn disable_pic() {
 }
 
 pub unsafe fn lapic_read(offset: u64) -> u32 {
-    let ptr = (LAPIC_BASE + offset) as *const u32;
+    let ptr = (LAPIC_VIRT + offset) as *const u32;
     unsafe { core::ptr::read_volatile(ptr) }
 }
 
 pub unsafe fn lapic_write(offset: u64, value: u32) {
-    let ptr = (LAPIC_BASE + offset) as *mut u32;
+    let ptr = (LAPIC_VIRT + offset) as *mut u32;
     unsafe { core::ptr::write_volatile(ptr, value) };
 }
 
 pub unsafe fn ioapic_read(reg: u32) -> u32 {
-    let select = IOAPIC_BASE as *mut u32;
-    let data = (IOAPIC_BASE + IOAPIC_REG_DATA) as *mut u32;
+    let select = IOAPIC_VIRT as *mut u32;
+    let data = (IOAPIC_VIRT + IOAPIC_REG_DATA) as *mut u32;
     unsafe { core::ptr::write_volatile(select, reg) };
     unsafe { core::ptr::read_volatile(data) }
 }
 
 pub unsafe fn ioapic_write(reg: u32, value: u32) {
-    let select = IOAPIC_BASE as *mut u32;
-    let data = (IOAPIC_BASE + IOAPIC_REG_DATA) as *mut u32;
+    let select = IOAPIC_VIRT as *mut u32;
+    let data = (IOAPIC_VIRT + IOAPIC_REG_DATA) as *mut u32;
     unsafe { core::ptr::write_volatile(select, reg) };
     unsafe { core::ptr::write_volatile(data, value) };
 }
@@ -156,12 +159,14 @@ pub fn init() {
     disable_pic();
 
     let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_CACHE;
-    vmm::map_page(VirtAddr::new(LAPIC_BASE), PhysAddr::new(LAPIC_BASE), flags)
+
+    // Map to high virtual addresses
+    vmm::map_page(VirtAddr::new(LAPIC_VIRT), PhysAddr::new(LAPIC_PHYS), flags)
         .expect("failed to map lapic");
 
     vmm::map_page(
-        VirtAddr::new(IOAPIC_BASE),
-        PhysAddr::new(IOAPIC_BASE),
+        VirtAddr::new(IOAPIC_VIRT),
+        PhysAddr::new(IOAPIC_PHYS),
         flags,
     )
     .expect("failed to map ioapic");
