@@ -89,9 +89,9 @@ impl Filesystem for TasksFs {
                     TaskMode::Kernel => "kernel",
                     TaskMode::User => "user",
                 };
-                format!("pid: {}\nstate: {}\nmode: {}\n", task.id, state, mode).into_bytes()
+                format!("pid: {}\nstate: {}\nmode: {}", task.id, state, mode).into_bytes()
             }
-            "name" => format!("task_{}\n", task.id).into_bytes(),
+            "name" => format!("{}", task.name).into_bytes(),
             _ => return Err(VfsError::NotFound),
         };
 

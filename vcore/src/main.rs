@@ -136,7 +136,7 @@ unsafe extern "C" fn kmain() -> ! {
 
     sched::init();
 
-    sched::spawn_elf(INIT_ELF).expect("failed to spawn init");
+    sched::spawn_elf("shell", INIT_ELF).expect("failed to spawn init");
     // sched::spawn_elf(HELLO_ELF).expect("failed to spawn init");
     // sched::spawn_elf(HELLO_ELF).expect("failed to spawn init");
 

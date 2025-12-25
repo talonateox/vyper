@@ -21,6 +21,7 @@ pub enum TaskMode {
 
 pub struct Task {
     pub id: u64,
+    pub name: String,
     pub state: TaskState,
     pub mode: TaskMode,
     pub stack_ptr: u64,
@@ -75,7 +76,7 @@ unsafe extern "C" fn user_entry_trampoline() -> ! {
 impl Task {
     const STACK_SIZE: usize = 4096 * 4;
 
-    pub fn new(entry: fn()) -> Self {
+    pub fn new(name: &str, entry: fn()) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         let stack = alloc::vec![0u8; Self::STACK_SIZE];
 
@@ -111,6 +112,7 @@ impl Task {
 
         Self {
             id,
+            name: String::from(name),
             state: TaskState::Ready,
             mode: TaskMode::Kernel,
             stack_ptr: sp,
@@ -126,7 +128,12 @@ impl Task {
         }
     }
 
-    pub fn new_user(address_space: AddressSpace, user_entry: u64, user_stack: u64) -> Self {
+    pub fn new_user(
+        name: &str,
+        address_space: AddressSpace,
+        user_entry: u64,
+        user_stack: u64,
+    ) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         let stack = alloc::vec![0u8; Self::STACK_SIZE];
 
@@ -156,6 +163,7 @@ impl Task {
 
         Self {
             id,
+            name: String::from(name),
             state: TaskState::Ready,
             mode: TaskMode::User,
             stack_ptr: sp,
@@ -176,6 +184,7 @@ impl Task {
 
         Self {
             id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            name: String::from("sched"),
             state: TaskState::Running,
             mode: TaskMode::Kernel,
             stack_ptr: 0,

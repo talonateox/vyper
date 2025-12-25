@@ -68,14 +68,14 @@ pub fn init() {
     *SCHEDULER.lock() = Some(sched);
 }
 
-pub fn spawn(entry: fn()) {
-    let task = Task::new(entry);
+pub fn spawn(name: &str, entry: fn()) {
+    let task = Task::new(name, entry);
     if let Some(sched) = SCHEDULER.lock().as_mut() {
         sched.add_task(task);
     }
 }
 
-pub fn spawn_elf(elf_data: &[u8]) -> Result<u64, &'static str> {
+pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
     let address_space = AddressSpace::new()?;
 
     let loaded = elf::load_into(elf_data, &address_space)?;
@@ -97,7 +97,7 @@ pub fn spawn_elf(elf_data: &[u8]) -> Result<u64, &'static str> {
 
     let user_stack_top = user_stack_top_page + 4096 - 8;
 
-    let task = Task::new_user(address_space, loaded.entry, user_stack_top);
+    let task = Task::new_user(name, address_space, loaded.entry, user_stack_top);
     let id = task.id;
 
     info!("spawned task with PID: {}", id);
