@@ -160,7 +160,6 @@ pub fn init() {
 
     let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_CACHE;
 
-    // Map to high virtual addresses
     vmm::map_page(VirtAddr::new(LAPIC_VIRT), PhysAddr::new(LAPIC_PHYS), flags)
         .expect("failed to map lapic");
 
